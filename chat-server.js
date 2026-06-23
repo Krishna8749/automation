@@ -198,15 +198,22 @@ app.get('/api/keys-mgmt', async (req, res) => {
 
 // POST /api/keys-mgmt - Create a key
 app.post('/api/keys-mgmt', async (req, res) => {
-  const { label } = req.body;
+  const { label, key } = req.body;
   if (!label) {
     return res.status(400).json({ error: 'Label is required' });
   }
   try {
     const data = await fs.readJson(KEYS_FILE).catch(() => ({ keys: [] }));
-    const newKey = `sk-cgp-${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+    const finalKey = key || `sk-cgp-${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Check if key already exists
+    const existing = data.keys.find(k => k.key === finalKey);
+    if (existing) {
+      return res.status(400).json({ error: 'API key already exists' });
+    }
+
     const newRecord = {
-      key: newKey,
+      key: finalKey,
       label,
       url: null,
       createdAt: new Date().toISOString()
@@ -227,6 +234,35 @@ app.delete('/api/keys-mgmt/:key', async (req, res) => {
     const filtered = data.keys.filter(k => k.key !== key);
     await fs.writeJson(KEYS_FILE, { keys: filtered }, { spaces: 2 });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/debug - Remote diagnostic checks & screenshot
+app.get('/api/debug', authMiddleware, async (req, res) => {
+  try {
+    const isHealthy = bot && bot.page && !bot.page.isClosed();
+    const url = isHealthy ? bot.page.url() : 'browser-inactive';
+    const title = isHealthy ? await bot.page.title().catch(() => 'error') : '';
+    
+    let screenshotBase64 = null;
+    if (isHealthy) {
+      const buffer = await bot.page.screenshot({ type: 'png' }).catch(() => null);
+      if (buffer) {
+        screenshotBase64 = buffer.toString('base64');
+      }
+    }
+
+    res.json({
+      status: isHealthy ? 'healthy' : 'unhealthy',
+      browserActive: !!(bot && bot.context),
+      url,
+      title,
+      screenshot: screenshotBase64 ? `data:image/png;base64,${screenshotBase64}` : null,
+      keysFileExists: await fs.pathExists(KEYS_FILE),
+      cookiesFileExists: await fs.pathExists(COOKIES_FILE)
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

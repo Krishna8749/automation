@@ -374,15 +374,65 @@ export class ChatGPTImageBot {
 
   async _bypassCloudflare() {
     for (let i = 0; i < 20; i++) {
+      // 1. Check if chat input is already visible. If so, return immediately!
+      const isInputVisible = await this.page.evaluate(() => {
+        const input = document.querySelector('#prompt-textarea') || 
+                      document.querySelector('div[contenteditable="true"]') ||
+                      document.querySelector('textarea[placeholder]');
+        if (!input) return false;
+        const rect = input.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }).catch(() => false);
+
+      if (isInputVisible) {
+        return;
+      }
+
+      // 2. Check if a Cloudflare challenge is present
       const hasChallenge = await this.page.evaluate(() => {
         return document.title.includes('Just a moment') ||
                document.body?.innerText?.includes('Verify you are human') ||
                document.body?.innerText?.includes('checking your browser') ||
-               !!document.querySelector('iframe[src*="cloudflare"]');
+               !!document.querySelector('iframe[src*="cloudflare"]') ||
+               !!document.querySelector('iframe[src*="challenges"]');
       }).catch(() => false);
 
       if (!hasChallenge) return;
-      console.log(`  ⏳ Cloudflare challenge — waiting (${i + 1}/20)...`);
+
+      console.log(`  ⏳ Cloudflare challenge — waiting/solving (${i + 1}/20)...`);
+
+      // 3. Try to locate and click the Turnstile checkbox inside any cloudflare/challenges iframe
+      try {
+        const frames = this.page.frames();
+        for (const frame of frames) {
+          const url = frame.url();
+          if (url.includes('cloudflare') || url.includes('challenges')) {
+            const clickTargets = [
+              'input[type="checkbox"]',
+              '#challenge-stage',
+              '.ctp-checkbox-label',
+              'span.mark',
+              '.ctp-checkbox-container',
+              '#cf-stage',
+            ];
+            for (const target of clickTargets) {
+              const el = await frame.$(target);
+              if (el) {
+                const box = await el.boundingBox().catch(() => null);
+                if (box && box.width > 0 && box.height > 0) {
+                  console.log(`    👉 Clicked Turnstile element: "${target}" in iframe`);
+                  await el.click({ force: true, timeout: 2000 }).catch(() => {});
+                  await this.page.waitForTimeout(1000);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('    ⚠️ Error trying to click Turnstile checkbox:', err.message);
+      }
+
       await this.page.waitForTimeout(2000);
     }
   }
