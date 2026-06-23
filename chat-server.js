@@ -280,16 +280,28 @@ app.get('/api/debug', authMiddleware, async (req, res) => {
       }
       
       iframes = await bot.page.evaluate(() => {
-        return Array.from(document.querySelectorAll('iframe')).map(f => {
-          const r = f.getBoundingClientRect();
-          return {
-            src: f.src,
-            id: f.id,
-            className: f.className,
-            title: f.title,
-            rect: { x: r.x, y: r.y, w: r.width, h: r.height }
-          };
-        });
+        const list = [];
+        const findIframes = (root) => {
+          if (!root) return;
+          const all = root.querySelectorAll('*');
+          for (const el of all) {
+            if (el.tagName === 'IFRAME') {
+              const r = el.getBoundingClientRect();
+              list.push({
+                src: el.src,
+                id: el.id,
+                className: el.className,
+                title: el.title,
+                rect: { x: r.x, y: r.y, w: r.width, h: r.height }
+              });
+            }
+            if (el.shadowRoot) {
+              findIframes(el.shadowRoot);
+            }
+          }
+        };
+        findIframes(document);
+        return list;
       }).catch(() => []);
     }
 
