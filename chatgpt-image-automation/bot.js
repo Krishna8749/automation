@@ -90,6 +90,16 @@ export class ChatGPTImageBot {
       `--window-size=${profile.screen.width},${profile.screen.height}`,
       '--lang=en-US',
       '--disable-gpu-sandbox',
+      '--disable-gpu',
+      '--disable-software-rasterizer',
+      '--js-flags=--max-old-space-size=256',
+      '--no-zygote',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-ipc-flooding-protection',
     ];
 
     try {
