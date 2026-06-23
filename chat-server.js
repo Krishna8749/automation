@@ -392,10 +392,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
         }
       } else {
         console.log(chalk.yellow(`🆕 Starting fresh thread context for: "${keyRecord.label}"`));
-        await bot.page.goto(bot.chatgptUrl, { waitUntil: 'domcontentloaded', timeout: bot.pageTimeout });
-        await bot.page.waitForTimeout(3000);
-        await bot._bypassCloudflare();
-        await bot._waitForChatReady();
+        await bot.newChat();
       }
 
       // Focus, type, and submit
@@ -493,10 +490,7 @@ app.post('/v1/chat/completions', authMiddleware, async (req, res) => {
         }
       } else {
         console.log(chalk.yellow(`🆕 Starting fresh thread context for: "${keyRecord.label}"`));
-        await bot.page.goto(bot.chatgptUrl, { waitUntil: 'domcontentloaded', timeout: bot.pageTimeout });
-        await bot.page.waitForTimeout(3000);
-        await bot._bypassCloudflare();
-        await bot._waitForChatReady();
+        await bot.newChat();
       }
 
       // Focus, type, and submit

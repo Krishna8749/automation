@@ -476,7 +476,13 @@ export class ChatGPTImageBot {
                !!document.querySelector('iframe[src*="challenges"]');
       }).catch(() => false);
 
-      if (!hasChallenge) return;
+      if (!hasChallenge) {
+        // If no challenge is detected but the input is still not visible,
+        // the page might still be transitioning or loading. Keep waiting.
+        console.log(`  ⏳ No challenge or input detected yet, waiting for page load (${i + 1}/20)...`);
+        await this.page.waitForTimeout(1000);
+        continue;
+      }
 
       console.log(`  ⏳ Cloudflare challenge — waiting/solving (${i + 1}/20)...`);
 
@@ -1013,7 +1019,57 @@ export class ChatGPTImageBot {
   //  New chat
   // ──────────────────────────────────────────────
   async newChat() {
-    console.log('⚠️ newChat requested but ignored (using only previous session).');
+    console.log('🔄 Starting new chat session...');
+    try {
+      const currentUrl = this.page.url();
+      const isMainPage = currentUrl === this.chatgptUrl || currentUrl === `${this.chatgptUrl}/` || currentUrl === `${this.chatgptUrl}/?oai-dm=1`;
+      
+      const isInputVisible = await this.page.evaluate(() => {
+        const input = document.querySelector('#prompt-textarea') || 
+                      document.querySelector('div[contenteditable="true"]') ||
+                      document.querySelector('textarea[placeholder]');
+        if (!input) return false;
+        const rect = input.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }).catch(() => false);
+
+      // If we are already on the main page and the input is visible, we don't need to do anything!
+      if (isMainPage && isInputVisible) {
+        console.log('  ↳ Already on a fresh main page and input is visible.');
+        return this;
+      }
+
+      // Try to click the "New chat" button in the sidebar
+      const newChatBtn = this.page.locator('[data-testid="create-new-chat-button"]').first();
+      const count = await newChatBtn.count().catch(() => 0);
+      if (count > 0) {
+        console.log('  ↳ Clicking "New chat" button via Playwright...');
+        await newChatBtn.click({ force: true });
+      } else {
+        console.log('  ↳ "New chat" button not found. Evaluating client-side click...');
+        await this.page.evaluate(() => {
+          const btn = document.querySelector('[data-testid="create-new-chat-button"]');
+          if (btn) {
+            btn.click();
+          } else {
+            // fallback to client routing
+            window.location.href = '/';
+          }
+        }).catch(() => {});
+      }
+
+      // Wait a moment for transition and chat input readiness
+      await this.page.waitForTimeout(2000);
+      await this._waitForChatReady();
+    } catch (err) {
+      console.warn('⚠️ Failed to click New Chat button:', err.message);
+      // Fallback: full reload navigation
+      console.log('  ↳ Falling back to full page navigation...');
+      await this.page.goto(this.chatgptUrl, { waitUntil: 'domcontentloaded', timeout: this.pageTimeout });
+      await this.page.waitForTimeout(3000);
+      await this._bypassCloudflare();
+      await this._waitForChatReady();
+    }
     return this;
   }
 
