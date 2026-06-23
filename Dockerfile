@@ -10,6 +10,9 @@ COPY package*.json ./
 # Install project dependencies
 RUN npm ci
 
+# Install Google Chrome stable for production launch
+RUN npx playwright install chrome
+
 # Copy application files
 COPY . .
 

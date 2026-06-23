@@ -332,6 +332,7 @@ app.get('/api/debug', authMiddleware, async (req, res) => {
       iframes,
       inputsInfo,
       framesList: isHealthy ? bot.page.frames().map(f => ({ name: f.name(), url: f.url() })) : [],
+      consoleLogs: isHealthy && bot ? bot.consoleLogs || [] : [],
       screenshot: screenshotBase64 ? `data:image/png;base64,${screenshotBase64}` : null,
       html: isHealthy ? await bot.page.content().catch(() => '') : null,
       keysFileExists: await fs.pathExists(KEYS_FILE),

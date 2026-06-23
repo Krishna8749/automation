@@ -307,6 +307,18 @@ export class ChatGPTImageBot {
     this.page = this.context.pages()[0] || await this.context.newPage();
     this.page.setDefaultTimeout(this.pageTimeout);
 
+    this.consoleLogs = [];
+    this.page.on('console', msg => {
+      const txt = msg.text();
+      const type = msg.type();
+      this.consoleLogs.push(`[${type}] ${txt}`);
+      if (this.consoleLogs.length > 100) this.consoleLogs.shift();
+    });
+    this.page.on('pageerror', err => {
+      this.consoleLogs.push(`[error] ${err.message}`);
+      if (this.consoleLogs.length > 100) this.consoleLogs.shift();
+    });
+
     console.log('✅ Browser launched');
     return this;
   }
