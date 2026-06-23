@@ -144,18 +144,48 @@ export class ChatGPTImageBot {
       // 4. PDF Viewer
       Object.defineProperty(navigator, 'pdfViewerEnabled', { get: () => true });
 
-      // 5. Device Memory
+      // 5. Device Memory & Hardware Concurrency
       Object.defineProperty(navigator, 'deviceMemory', { get: () => profile.memory });
-
-      // 6. Hardware Concurrency
       Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => profile.cores });
+
+      // 6. Spoof Plugins and MimeTypes (Native-looking structures)
+      const makePlugin = (name, filename, description) => {
+        const p = Object.create(Plugin.prototype);
+        Object.defineProperties(p, {
+          name: { get: () => name, enumerable: true },
+          filename: { get: () => filename, enumerable: true },
+          description: { get: () => description, enumerable: true },
+          length: { get: () => 0, enumerable: true }
+        });
+        return p;
+      };
+
+      const pluginsList = [
+        makePlugin('PDF Viewer', 'internal-pdf-viewer', 'Portable Document Format'),
+        makePlugin('Chrome PDF Viewer', 'internal-pdf-viewer', 'Portable Document Format'),
+        makePlugin('Chromium PDF Viewer', 'internal-pdf-viewer', 'Portable Document Format'),
+        makePlugin('Microsoft Edge PDF Viewer', 'internal-pdf-viewer', 'Portable Document Format'),
+        makePlugin('WebKit built-in PDF', 'internal-pdf-viewer', 'Portable Document Format')
+      ];
+
+      const pluginArray = Object.create(PluginArray.prototype);
+      pluginsList.forEach((p, idx) => {
+        pluginArray[idx] = p;
+        Object.defineProperty(pluginArray, p.name, { get: () => p, enumerable: false });
+      });
+      Object.defineProperties(pluginArray, {
+        length: { get: () => pluginsList.length, enumerable: true },
+        item: { value: (idx) => pluginsList[idx], enumerable: true },
+        namedItem: { value: (name) => pluginsList.find(p => p.name === name) || null, enumerable: true }
+      });
+      Object.defineProperty(navigator, 'plugins', { get: () => pluginArray, enumerable: true });
 
       // 7. Screen Dimensions
       const screenProps = {
         width: profile.screen.width,
         height: profile.screen.height,
         availWidth: profile.screen.width,
-        availHeight: profile.screen.height,
+        availHeight: profile.screen.height - 40,
         colorDepth: 24,
         pixelDepth: 24,
       };
@@ -169,15 +199,22 @@ export class ChatGPTImageBot {
       Object.defineProperty(window, 'outerHeight', { get: () => profile.screen.height });
       Object.defineProperty(window, 'devicePixelRatio', { get: () => 1 });
 
-      // 8. WebGL Spoofing Proxy
+      // 8. Permissions query override
+      if (window.navigator.permissions) {
+        const originalQuery = window.navigator.permissions.query;
+        window.navigator.permissions.query = (parameters) => 
+          parameters && parameters.name === 'notifications' 
+            ? Promise.resolve({ state: Notification.permission, onchange: null }) 
+            : originalQuery(parameters);
+      }
+
+      // 9. WebGL Spoofing Proxy
       const getParameterProxy = (target, thisArg, argList) => {
         const parameter = argList[0];
-        if (parameter === 37445) { // UNMASKED_VENDOR_WEBGL
-          return profile.webgl.vendor;
-        }
-        if (parameter === 37446) { // UNMASKED_RENDERER_WEBGL
-          return profile.webgl.renderer;
-        }
+        if (parameter === 37445) return profile.webgl.vendor; // UNMASKED_VENDOR_WEBGL
+        if (parameter === 37446) return profile.webgl.renderer; // UNMASKED_RENDERER_WEBGL
+        if (parameter === 3379) return 16384; // MAX_TEXTURE_SIZE
+        if (parameter === 35661) return 80; // MAX_COMBINED_TEXTURE_IMAGE_UNITS
         return Reflect.apply(target, thisArg, argList);
       };
 
@@ -192,7 +229,7 @@ export class ChatGPTImageBot {
         WebGL2RenderingContext.prototype.getParameter = new Proxy(WebGL2RenderingContext.prototype.getParameter, proxyHandler);
       }
 
-      // 9. Navigator UserAgentData (Client Hints)
+      // 10. Navigator UserAgentData (Client Hints)
       const uaData = {
         brands: [
           { brand: 'Not/A)Brand', version: '8' },
@@ -220,7 +257,7 @@ export class ChatGPTImageBot {
         }
       };
 
-      // 10. Chrome object
+      // 11. Realistic window.chrome object (with full runtime APIs)
       window.chrome = {
         app: {
           isInstalled: false,
@@ -230,6 +267,8 @@ export class ChatGPTImageBot {
         csi: () => {},
         loadTimes: () => {},
         runtime: {
+          sendMessage: () => {},
+          connect: () => {},
           OnInstalledReason: { CHROME_UPDATE: 'chrome_update', INSTALL: 'install', SHARED_MODULE_UPDATE: 'shared_module_update', UPDATE: 'update' },
           OnRestartRequiredReason: { APP_UPDATE: 'app_update', OS_UPDATE: 'os_update', PERIODIC: 'periodic' },
           PlatformArch: { ARM: 'arm', ARM64: 'arm64', MIPS: 'mips', MIPS64: 'mips64', X86_32: 'x86_32', X86_64: 'x86_64' },
@@ -238,6 +277,11 @@ export class ChatGPTImageBot {
           RequestUpdateCheckStatus: { NO_UPDATE: 'no_update', THROTTLED: 'throttled', UPDATE_AVAILABLE: 'update_available' }
         }
       };
+
+      // 12. AudioContext baseLatency spoofing
+      if (window.AudioContext) {
+        Object.defineProperty(AudioContext.prototype, 'baseLatency', { get: () => 0.005 });
+      }
     }, profile);
 
     await this._loadCookies();
