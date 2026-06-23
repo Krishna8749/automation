@@ -286,7 +286,16 @@ app.get('/api/debug', authMiddleware, async (req, res) => {
       title,
       screenshot: screenshotBase64 ? `data:image/png;base64,${screenshotBase64}` : null,
       keysFileExists: await fs.pathExists(KEYS_FILE),
-      cookiesFileExists: await fs.pathExists(COOKIES_FILE)
+      cookiesFileExists: await fs.pathExists(COOKIES_FILE),
+      dataDir: DATA_DIR,
+      keysFile: KEYS_FILE,
+      cookiesFile: COOKIES_FILE,
+      env: {
+        CHATGPT_COOKIES_LEN: process.env.CHATGPT_COOKIES ? process.env.CHATGPT_COOKIES.length : 0,
+        CHATGPT_COOKIES_START: process.env.CHATGPT_COOKIES ? process.env.CHATGPT_COOKIES.trim().substring(0, 40) : null,
+        GATEWAY_API_KEY_LEN: process.env.GATEWAY_API_KEY ? process.env.GATEWAY_API_KEY.length : 0,
+        DATA_DIR: process.env.DATA_DIR || null
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

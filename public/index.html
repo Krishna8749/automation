@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,12 +8,15 @@
   <!-- Google Fonts: Outfit & Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Custom Styling -->
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <div class="glow-container">
     <div class="glow-sphere glow-sphere-1"></div>
@@ -47,12 +51,14 @@
             <i data-lucide="key-round" class="card-icon icon-primary"></i>
             <h2>Generate API Key</h2>
           </div>
-          <p class="card-subtitle">Create a dedicated API key. Each key maintains its own isolated conversation thread on ChatGPT.</p>
-          
+          <p class="card-subtitle">Create a dedicated API key. Each key maintains its own isolated conversation thread
+            on ChatGPT.</p>
+
           <form id="keyGeneratorForm" class="generator-form">
             <div class="input-group">
               <label for="keyLabelInput">Key Label / Name</label>
-              <input type="text" id="keyLabelInput" placeholder="e.g. Cursor Assistant, Slack Bot" required autocomplete="off">
+              <input type="text" id="keyLabelInput" placeholder="e.g. Cursor Assistant, Slack Bot" required
+                autocomplete="off">
             </div>
             <button type="submit" id="generateKeyBtn" class="btn btn-primary btn-glow">
               <i data-lucide="plus"></i>
@@ -80,11 +86,13 @@
             </div>
             <div class="guide-step">
               <h3>2. Select Model</h3>
-              <p>You can use standard OpenAI models in your settings (e.g. <code>gpt-4o</code>, <code>chatgpt</code>).</p>
+              <p>You can use standard OpenAI models in your settings (e.g. <code>gpt-4o</code>, <code>chatgpt</code>).
+              </p>
             </div>
             <div class="guide-step">
               <h3>3. Support in Cursor / Cline</h3>
-              <p>Paste your generated API key and the base URL directly into Cursor's OpenAI settings to route all developer chats to your persistent sessions.</p>
+              <p>Paste your generated API key and the base URL directly into Cursor's OpenAI settings to route all
+                developer chats to your persistent sessions.</p>
             </div>
           </div>
         </div>
@@ -138,4 +146,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>

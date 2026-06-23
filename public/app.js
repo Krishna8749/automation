@@ -213,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
   keyGeneratorForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const label = keyLabelInput.value.trim();
+    const customKey = document.getElementById('keyValueInput')?.value.trim() || '';
     if (!label) return;
 
     generateKeyBtn.disabled = true;
@@ -224,13 +225,19 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ label })
+        body: JSON.stringify({ label, key: customKey || undefined })
       });
 
-      if (!res.ok) throw new Error('Failed to generate key');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to generate key');
+      }
       const newKeyObj = await res.json();
       
       keyLabelInput.value = '';
+      if (document.getElementById('keyValueInput')) {
+        document.getElementById('keyValueInput').value = '';
+      }
       showToast(`Key "${label}" generated!`);
       
       // Auto-copy new key to clipboard for maximum user convenience
@@ -241,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       fetchKeys();
     } catch (err) {
-      showToast('Failed to generate API Key', 'error');
+      showToast(err.message || 'Failed to generate API Key', 'error');
     } finally {
       generateKeyBtn.disabled = false;
       generateKeyBtn.querySelector('span').textContent = 'Generate Key';
