@@ -482,7 +482,16 @@ export class ChatGPTImageBot {
 
       // 3. Try to locate and click the Turnstile checkbox inside any cloudflare/challenges iframe
       try {
-        const iframeElement = await this.page.$('iframe[src*="cloudflare"], iframe[src*="challenges"], iframe[title*="verification"]');
+        const allIframes = await this.page.locator('iframe').all().catch(() => []);
+        console.log(`    ℹ️ Total iframes found by Playwright: ${allIframes.length}`);
+        for (let idx = 0; idx < allIframes.length; idx++) {
+          const src = await allIframes[idx].getAttribute('src').catch(() => 'error');
+          const title = await allIframes[idx].getAttribute('title').catch(() => 'error');
+          const id = await allIframes[idx].getAttribute('id').catch(() => 'error');
+          console.log(`      [${idx}] id="${id}" title="${title}" src="${src}"`);
+        }
+
+        const iframeElement = await this.page.$('iframe[src*="cloudflare"], iframe[src*="challenges"], iframe[title*="verification"], iframe[src*="turnstile"]');
         if (iframeElement) {
           const iframeBox = await iframeElement.boundingBox().catch(() => null);
           if (iframeBox && iframeBox.width > 0 && iframeBox.height > 0) {
