@@ -376,42 +376,43 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
   try {
     await botQueue.add(async () => {
       await ensureBotActive();
-      if (!bot || !bot.page) {
+      const localBot = bot;
+      if (!localBot || !localBot.page) {
         throw new Error('ChatGPT bot engine is offline.');
       }
 
       // ── Session Switching Logic ──
-      const currentUrl = bot.page.url();
+      const currentUrl = localBot.page.url();
       if (keyRecord.url) {
         if (currentUrl !== keyRecord.url) {
           console.log(chalk.yellow(`🔄 Switching thread context to: ${keyRecord.url}`));
-          await bot.page.goto(keyRecord.url, { waitUntil: 'domcontentloaded', timeout: bot.pageTimeout });
-          await bot.page.waitForTimeout(3000);
-          await bot._bypassCloudflare();
-          await bot._waitForChatReady();
+          await localBot.page.goto(keyRecord.url, { waitUntil: 'domcontentloaded', timeout: localBot.pageTimeout });
+          await localBot.page.waitForTimeout(3000);
+          await localBot._bypassCloudflare();
+          await localBot._waitForChatReady();
         }
       } else {
         console.log(chalk.yellow(`🆕 Starting fresh thread context for: "${keyRecord.label}"`));
-        await bot.newChat();
+        await localBot.newChat();
       }
 
       // Focus, type, and submit
-      await bot._focusChatInput();
-      await bot._typePrompt(message);
-      await bot._submitPrompt();
+      await localBot._focusChatInput();
+      await localBot._typePrompt(message);
+      await localBot._submitPrompt();
 
       console.log(chalk.gray('⏳ Waiting for ChatGPT response...'));
-      await bot._waitForNotGenerating();
-      await bot.page.waitForTimeout(2000);
+      await localBot._waitForNotGenerating();
+      await localBot.page.waitForTimeout(2000);
 
       // Capture dynamic thread URL
-      const latestUrl = bot.page.url();
-      if (!keyRecord.url && latestUrl.startsWith(`${bot.chatgptUrl}/c/`)) {
+      const latestUrl = localBot.page.url();
+      if (!keyRecord.url && latestUrl.startsWith(`${localBot.chatgptUrl}/c/`)) {
         keyRecord.url = latestUrl;
         await updateKeyUrl(keyRecord.key, latestUrl);
       }
 
-      const text = await getLatestAssistantText(bot.page);
+      const text = await getLatestAssistantText(localBot.page);
       if (!text) {
         throw new Error('No response text returned from ChatGPT.');
       }
@@ -474,45 +475,46 @@ app.post('/v1/chat/completions', authMiddleware, async (req, res) => {
   try {
     await botQueue.add(async () => {
       await ensureBotActive();
-      if (!bot || !bot.page) {
+      const localBot = bot;
+      if (!localBot || !localBot.page) {
         throw new Error('ChatGPT bot engine is offline.');
       }
 
       // ── Session Switching Logic ──
-      const currentUrl = bot.page.url();
+      const currentUrl = localBot.page.url();
       if (keyRecord.url) {
         if (currentUrl !== keyRecord.url) {
           console.log(chalk.yellow(`🔄 Switching thread context to: ${keyRecord.url}`));
-          await bot.page.goto(keyRecord.url, { waitUntil: 'domcontentloaded', timeout: bot.pageTimeout });
-          await bot.page.waitForTimeout(3000);
-          await bot._bypassCloudflare();
-          await bot._waitForChatReady();
+          await localBot.page.goto(keyRecord.url, { waitUntil: 'domcontentloaded', timeout: localBot.pageTimeout });
+          await localBot.page.waitForTimeout(3000);
+          await localBot._bypassCloudflare();
+          await localBot._waitForChatReady();
         }
       } else {
         console.log(chalk.yellow(`🆕 Starting fresh thread context for: "${keyRecord.label}"`));
-        await bot.newChat();
+        await localBot.newChat();
       }
 
       // Focus, type, and submit
-      await bot._focusChatInput();
-      await bot._typePrompt(promptText);
+      await localBot._focusChatInput();
+      await localBot._typePrompt(promptText);
 
       // Record assistant count before submission
-      const countBefore = await bot.page.evaluate(() => document.querySelectorAll('[data-message-author-role="assistant"]').length);
+      const countBefore = await localBot.page.evaluate(() => document.querySelectorAll('[data-message-author-role="assistant"]').length);
 
-      await bot._submitPrompt();
+      await localBot._submitPrompt();
 
       // Wait for generation to start
       console.log(chalk.gray('⏳ Waiting for ChatGPT response to start...'));
       let started = false;
       for (let i = 0; i < 40; i++) {
-        const isGen = await bot._isGenerating();
-        const currentCount = await bot.page.evaluate(() => document.querySelectorAll('[data-message-author-role="assistant"]').length);
+        const isGen = await localBot._isGenerating();
+        const currentCount = await localBot.page.evaluate(() => document.querySelectorAll('[data-message-author-role="assistant"]').length);
         if (isGen || currentCount > countBefore) {
           started = true;
           break;
         }
-        await bot.page.waitForTimeout(100);
+        await localBot.page.waitForTimeout(100);
       }
 
       if (stream === true || stream === 'true') {
@@ -546,11 +548,11 @@ app.post('/v1/chat/completions', authMiddleware, async (req, res) => {
         let isGenerating = true;
 
         while (isGenerating || sameTextCount < 15) {
-          const currentText = await getLatestAssistantText(bot.page);
+          const currentText = await getLatestAssistantText(localBot.page);
 
           // Capture dynamic thread URL
-          const currentUrl = bot.page.url();
-          if (!keyRecord.url && currentUrl.startsWith(`${bot.chatgptUrl}/c/`)) {
+          const currentUrl = localBot.page.url();
+          if (!keyRecord.url && currentUrl.startsWith(`${localBot.chatgptUrl}/c/`)) {
             keyRecord.url = currentUrl;
             await updateKeyUrl(keyRecord.key, currentUrl);
           }
@@ -567,8 +569,8 @@ app.post('/v1/chat/completions', authMiddleware, async (req, res) => {
             sameTextCount = 0;
           }
 
-          isGenerating = await bot._isGenerating();
-          await bot.page.waitForTimeout(100);
+          isGenerating = await localBot._isGenerating();
+          await localBot.page.waitForTimeout(100);
         }
 
         // Finalize stream
@@ -580,17 +582,17 @@ app.post('/v1/chat/completions', authMiddleware, async (req, res) => {
       } else {
         // Non-Streaming Response
         console.log(chalk.gray('⏳ Waiting for complete response...'));
-        await bot._waitForNotGenerating();
-        await bot.page.waitForTimeout(2000); // Settle down
+        await localBot._waitForNotGenerating();
+        await localBot.page.waitForTimeout(2000); // Settle down
 
         // Capture dynamic thread URL
-        const currentUrl = bot.page.url();
-        if (!keyRecord.url && currentUrl.startsWith(`${bot.chatgptUrl}/c/`)) {
+        const currentUrl = localBot.page.url();
+        if (!keyRecord.url && currentUrl.startsWith(`${localBot.chatgptUrl}/c/`)) {
           keyRecord.url = currentUrl;
           await updateKeyUrl(keyRecord.key, currentUrl);
         }
 
-        const currentText = await getLatestAssistantText(bot.page);
+        const currentText = await getLatestAssistantText(localBot.page);
 
         if (!currentText) {
           throw new Error('No response text returned from ChatGPT.');
