@@ -272,11 +272,25 @@ app.get('/api/debug', authMiddleware, async (req, res) => {
     const title = isHealthy ? await bot.page.title().catch(() => 'error') : '';
     
     let screenshotBase64 = null;
+    let iframes = [];
     if (isHealthy) {
       const buffer = await bot.page.screenshot({ type: 'png' }).catch(() => null);
       if (buffer) {
         screenshotBase64 = buffer.toString('base64');
       }
+      
+      iframes = await bot.page.evaluate(() => {
+        return Array.from(document.querySelectorAll('iframe')).map(f => {
+          const r = f.getBoundingClientRect();
+          return {
+            src: f.src,
+            id: f.id,
+            className: f.className,
+            title: f.title,
+            rect: { x: r.x, y: r.y, w: r.width, h: r.height }
+          };
+        });
+      }).catch(() => []);
     }
 
     res.json({
@@ -284,6 +298,7 @@ app.get('/api/debug', authMiddleware, async (req, res) => {
       browserActive: !!(bot && bot.context),
       url,
       title,
+      iframes,
       screenshot: screenshotBase64 ? `data:image/png;base64,${screenshotBase64}` : null,
       keysFileExists: await fs.pathExists(KEYS_FILE),
       cookiesFileExists: await fs.pathExists(COOKIES_FILE),
