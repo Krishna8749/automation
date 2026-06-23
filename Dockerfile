@@ -1,5 +1,5 @@
 # Use Microsoft's official Playwright base image containing pre-installed Chromium and OS library dependencies
-FROM mcr.microsoft.com/playwright:v1.44.0-jammy
+FROM mcr.microsoft.com/playwright:v1.61.0-jammy
 
 # Create app directory
 WORKDIR /app
