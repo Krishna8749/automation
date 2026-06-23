@@ -1,0 +1,20 @@
+# Render Blueprint Specification for ChatGPT Multi-Session API Gateway
+services:
+  - type: web
+    name: chatgpt-api-gateway
+    env: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: HEADLESS
+        value: true
+      - key: DATA_DIR
+        value: /app/data
+      - key: GATEWAY_API_KEY
+        sync: false  # Recommended: Set this in the Render dashboard to secure the v1 endpoints
+    disk:
+      name: chatgpt-data
+      mountPath: /app/data
+      sizeGB: 1

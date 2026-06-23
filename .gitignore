@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Environment Variables
+.env
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Generated Files
+banner_*.png
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Selenium
+chromedriver
+geckodriver
+
+# Node.js
+node_modules/
+
+# Local session credentials & browser data
+chatgpt-image-automation/chrome-profile/
+chatgpt-image-automation/cookies.json
+linkedin-cookies.json
+api-keys.json
+last-chat-url.json
+last-chat-url-linkedin.json
+
+# Test scripts
+test-multi-session.js
+test-openai-api.js
+test-chat-api.js
+

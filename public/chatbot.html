@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persisted AI Chatbot</title>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Styling -->
+  <link rel="stylesheet" href="chatbot-style.css">
+</head>
+<body>
+  <div class="chatbot-container">
+    <!-- Sidebar: Session Information -->
+    <aside class="chatbot-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <i data-lucide="message-square-code"></i>
+        </div>
+        <h2>Persisted Bot</h2>
+      </div>
+      <div class="sidebar-body">
+        <div class="session-card">
+          <div class="session-card-header">
+            <span class="badge badge-indigo">Session Mapped</span>
+          </div>
+          <p class="session-desc">This chatbot routes all messages to a dedicated, persistent session thread on ChatGPT.</p>
+          <div class="key-display">
+            <label>API Auth Token</label>
+            <div class="key-box">
+              <span id="keyLabel">sk-cgp-••••••••91ak</span>
+            </div>
+          </div>
+        </div>
+        <div class="guide-card">
+          <h4>Features Enabled</h4>
+          <ul class="feature-list">
+            <li><i data-lucide="zap"></i> SSE Real-time Streaming</li>
+            <li><i data-lucide="brain-circuit"></i> Context Isolation</li>
+            <li><i data-lucide="clock-4"></i> Persistent Memory</li>
+          </ul>
+        </div>
+      </div>
+      <div class="sidebar-footer">
+        <p>Chatbot UI v1.0.0</p>
+      </div>
+    </aside>
+
+    <!-- Main Chat Interface -->
+    <section class="chatbot-main">
+      <!-- Chat Header -->
+      <header class="chat-header">
+        <div class="bot-info">
+          <div class="bot-avatar">
+            <i data-lucide="bot"></i>
+            <span class="avatar-status online"></span>
+          </div>
+          <div class="bot-details">
+            <h3>AI Assistant</h3>
+            <p>Active and streaming in real-time</p>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <a href="/" class="btn-back-dashboard" id="backToDashboardBtn">
+            <i data-lucide="arrow-left"></i>
+            <span>Dashboard</span>
+          </a>
+        </div>
+      </header>
+
+      <!-- Messages Body -->
+      <div class="chat-messages" id="chatMessages">
+        <!-- Welcoming Message -->
+        <div class="msg-turn assistant-turn">
+          <div class="avatar-msg">
+            <i data-lucide="bot"></i>
+          </div>
+          <div class="msg-bubble">
+            <p>Hello! I am your persistent AI Assistant. I will remember this conversation because all my responses route to a dedicated session. How can I help you today?</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages Input Footer -->
+      <footer class="chat-footer">
+        <form id="chatInputForm" class="chat-form">
+          <div class="input-container">
+            <textarea id="chatMessageInput" placeholder="Send a message..." required rows="1" autocomplete="off"></textarea>
+            <button type="submit" id="sendMessageBtn" class="btn-send" title="Send Message">
+              <i data-lucide="send"></i>
+            </button>
+          </div>
+        </form>
+      </footer>
+    </section>
+  </div>
+
+  <script src="chatbot-app.js"></script>
+</body>
+</html>

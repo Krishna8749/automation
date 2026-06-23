@@ -1,0 +1,11 @@
+# Example prompts for batch generation
+# One prompt per line — blank lines and # comments are ignored
+
+A futuristic cityscape at night with neon reflections on wet streets, cyberpunk style
+A serene Japanese garden with cherry blossoms, koi pond, and a wooden bridge
+A professional LinkedIn headshot background: modern office with soft bokeh
+A minimalist product photo of a luxury watch on a dark marble surface
+An astronaut floating in space with Earth visible in the background, photorealistic
+A cozy coffee shop interior with warm lighting and rustic wooden furniture
+A colorful abstract art piece with geometric shapes and vibrant gradients
+A mountain hiking trail at sunrise with fog in the valley below

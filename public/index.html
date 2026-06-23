@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatGPT API Gateway Dashboard</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Styling -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="glow-container">
+    <div class="glow-sphere glow-sphere-1"></div>
+    <div class="glow-sphere glow-sphere-2"></div>
+  </div>
+
+  <main class="dashboard-wrapper">
+    <!-- Header -->
+    <header class="main-header">
+      <div class="brand">
+        <div class="logo-box">
+          <i data-lucide="bot" class="logo-icon"></i>
+        </div>
+        <div class="brand-text">
+          <h1>ChatGPT Gateway</h1>
+          <p>Multi-Session API Key Manager</p>
+        </div>
+      </div>
+      <div class="server-status" id="statusContainer">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span class="status-text" id="statusText">Checking status...</span>
+      </div>
+    </header>
+
+    <!-- Content Grid -->
+    <div class="dashboard-grid">
+      <!-- Left Column: Generator & Info -->
+      <section class="control-panel">
+        <!-- Key Generator Card -->
+        <div class="glass-card generator-card">
+          <div class="card-header">
+            <i data-lucide="key-round" class="card-icon icon-primary"></i>
+            <h2>Generate API Key</h2>
+          </div>
+          <p class="card-subtitle">Create a dedicated API key. Each key maintains its own isolated conversation thread on ChatGPT.</p>
+          
+          <form id="keyGeneratorForm" class="generator-form">
+            <div class="input-group">
+              <label for="keyLabelInput">Key Label / Name</label>
+              <input type="text" id="keyLabelInput" placeholder="e.g. Cursor Assistant, Slack Bot" required autocomplete="off">
+            </div>
+            <button type="submit" id="generateKeyBtn" class="btn btn-primary btn-glow">
+              <i data-lucide="plus"></i>
+              <span>Generate Key</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Integration Guide Card -->
+        <div class="glass-card guide-card">
+          <div class="card-header">
+            <i data-lucide="code-2" class="card-icon icon-success"></i>
+            <h2>Integration Guide</h2>
+          </div>
+          <div class="guide-content">
+            <div class="guide-step">
+              <h3>1. Configure Base URL</h3>
+              <p>Set your API client or code editor to use this gateway URL:</p>
+              <div class="code-box">
+                <code id="gatewayUrlCode">Loading...</code>
+                <button class="btn-copy-small" id="copyUrlBtn" title="Copy Gateway URL">
+                  <i data-lucide="copy"></i>
+                </button>
+              </div>
+            </div>
+            <div class="guide-step">
+              <h3>2. Select Model</h3>
+              <p>You can use standard OpenAI models in your settings (e.g. <code>gpt-4o</code>, <code>chatgpt</code>).</p>
+            </div>
+            <div class="guide-step">
+              <h3>3. Support in Cursor / Cline</h3>
+              <p>Paste your generated API key and the base URL directly into Cursor's OpenAI settings to route all developer chats to your persistent sessions.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: API Keys Table -->
+      <section class="keys-panel">
+        <div class="glass-card keys-card">
+          <div class="card-header header-between">
+            <div class="header-left">
+              <i data-lucide="shield-check" class="card-icon icon-secondary"></i>
+              <h2>Active Keys</h2>
+            </div>
+            <span class="keys-count-badge" id="keysCount">0 Keys</span>
+          </div>
+
+          <div class="table-container">
+            <table class="keys-table" id="keysTable">
+              <thead>
+                <tr>
+                  <th>Label</th>
+                  <th>API Key</th>
+                  <th>ChatGPT Thread</th>
+                  <th>Created At</th>
+                  <th class="actions-header">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="keysTableBody">
+                <!-- Dynamic keys inject here -->
+                <tr class="empty-state-row" id="emptyState">
+                  <td colspan="5">
+                    <div class="empty-state">
+                      <i data-lucide="key" class="empty-icon"></i>
+                      <p>No active API keys found. Generate one to get started!</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Notification Toast -->
+  <div class="toast" id="toast">
+    <i data-lucide="check-circle" class="toast-icon"></i>
+    <span class="toast-message" id="toastMessage">Success message here</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

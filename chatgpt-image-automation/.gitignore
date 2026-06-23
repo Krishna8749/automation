@@ -1,0 +1,5 @@
+node_modules/
+generated-images/
+cookies.json
+.env
+*.log
