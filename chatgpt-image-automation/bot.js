@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { chromium } from 'playwright';
-import fs   from 'fs-extra';
+import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -17,7 +17,7 @@ function generateRandomDeviceProfile() {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
   ];
-  
+
   const screens = [
     { width: 1920, height: 1080 },
     { width: 1536, height: 864 },
@@ -58,17 +58,17 @@ function generateRandomDeviceProfile() {
 
 export class ChatGPTImageBot {
   constructor(options = {}) {
-    this.cookiesFile  = options.cookiesFile  || path.join(__dirname, 'cookies.json');
-    this.outputDir    = options.outputDir    || path.join(__dirname, 'generated-images');
-    this.headless     = options.headless     ?? true;
-    this.slowMo       = options.slowMo       ?? 0;
-    this.chatgptUrl   = options.chatgptUrl   || process.env.CHATGPT_URL || 'https://chatgpt.com';
-    this.pageTimeout  = options.pageTimeout  || 90000;
+    this.cookiesFile = options.cookiesFile || path.join(__dirname, 'cookies.json');
+    this.outputDir = options.outputDir || path.join(__dirname, 'generated-images');
+    this.headless = options.headless ?? true;
+    this.slowMo = options.slowMo ?? 0;
+    this.chatgptUrl = options.chatgptUrl || process.env.CHATGPT_URL || 'https://chatgpt.com';
+    this.pageTimeout = options.pageTimeout || 90000;
     this.imageTimeout = options.imageTimeout || 300000; // 5 min
 
     this.browser = null;
     this.context = null;
-    this.page    = null;
+    this.page = null;
     this.lastChatUrlFile = path.join(path.dirname(this.cookiesFile), 'last-chat-url.json');
   }
 
@@ -104,13 +104,13 @@ export class ChatGPTImageBot {
 
     try {
       this.context = await chromium.launchPersistentContext(profileDir, {
-        channel:  'chrome',
+        channel: 'chrome',
         headless: this.headless,
-        slowMo:   this.slowMo,
-        args:     launchArgs,
+        slowMo: this.slowMo,
+        args: launchArgs,
         userAgent: profile.userAgent,
-        viewport:   null,
-        locale:     'en-US',
+        viewport: null,
+        locale: 'en-US',
         timezoneId: 'Asia/Kolkata',
         permissions: ['clipboard-read', 'clipboard-write'],
       });
@@ -119,11 +119,11 @@ export class ChatGPTImageBot {
       console.warn('⚠️ Google Chrome persistent launch failed, falling back to bundled Chromium:', err.message);
       this.context = await chromium.launchPersistentContext(profileDir, {
         headless: this.headless,
-        slowMo:   this.slowMo,
-        args:     launchArgs,
+        slowMo: this.slowMo,
+        args: launchArgs,
         userAgent: profile.userAgent,
-        viewport:   null,
-        locale:     'en-US',
+        viewport: null,
+        locale: 'en-US',
         timezoneId: 'Asia/Kolkata',
         permissions: ['clipboard-read', 'clipboard-write'],
       });
@@ -135,7 +135,7 @@ export class ChatGPTImageBot {
       // Clean up any automation variables injected by Playwright/Chromium driver
       for (const prop of Object.getOwnPropertyNames(window)) {
         if (prop.includes('cdc_') || prop.includes('playwright')) {
-          try { delete window[prop]; } catch(e) {}
+          try { delete window[prop]; } catch (e) { }
         }
       }
 
@@ -207,7 +207,7 @@ export class ChatGPTImageBot {
         colorDepth: 24,
         pixelDepth: 24,
       };
-      
+
       for (const [prop, val] of Object.entries(screenProps)) {
         Object.defineProperty(window.screen, prop, { get: () => val });
       }
@@ -220,9 +220,9 @@ export class ChatGPTImageBot {
       // 8. Permissions query override
       if (window.navigator.permissions) {
         const originalQuery = window.navigator.permissions.query;
-        window.navigator.permissions.query = (parameters) => 
-          parameters && parameters.name === 'notifications' 
-            ? Promise.resolve({ state: Notification.permission, onchange: null }) 
+        window.navigator.permissions.query = (parameters) =>
+          parameters && parameters.name === 'notifications'
+            ? Promise.resolve({ state: Notification.permission, onchange: null })
             : originalQuery(parameters);
       }
 
@@ -282,11 +282,11 @@ export class ChatGPTImageBot {
           InstallState: { DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' },
           RunningState: { CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' }
         },
-        csi: () => {},
-        loadTimes: () => {},
+        csi: () => { },
+        loadTimes: () => { },
         runtime: {
-          sendMessage: () => {},
-          connect: () => {},
+          sendMessage: () => { },
+          connect: () => { },
           OnInstalledReason: { CHROME_UPDATE: 'chrome_update', INSTALL: 'install', SHARED_MODULE_UPDATE: 'shared_module_update', UPDATE: 'update' },
           OnRestartRequiredReason: { APP_UPDATE: 'app_update', OS_UPDATE: 'os_update', PERIODIC: 'periodic' },
           PlatformArch: { ARM: 'arm', ARM64: 'arm64', MIPS: 'mips', MIPS64: 'mips64', X86_32: 'x86_32', X86_64: 'x86_64' },
@@ -333,7 +333,7 @@ export class ChatGPTImageBot {
       return false;
     }
     try {
-      const raw     = await fs.readJson(this.cookiesFile);
+      const raw = await fs.readJson(this.cookiesFile);
       const cookies = this._normalizeCookies(raw);
       await this.context.addCookies(cookies);
       console.log(`🍪 Loaded ${cookies.length} cookies`);
@@ -367,9 +367,9 @@ export class ChatGPTImageBot {
 
   _normalizeCookies(raw) {
     return raw.map(c => ({
-      name:     c.name,
-      value:    c.value,
-      domain:   c.domain   || (() => {
+      name: c.name,
+      value: c.value,
+      domain: c.domain || (() => {
         try {
           const host = new URL(this.chatgptUrl).hostname;
           return host.startsWith('.') ? host : '.' + host;
@@ -377,14 +377,14 @@ export class ChatGPTImageBot {
           return '.chatgpt.com';
         }
       })(),
-      path:     c.path     || '/',
-      expires:  c.expirationDate || c.expires || -1,
+      path: c.path || '/',
+      expires: c.expirationDate || c.expires || -1,
       httpOnly: c.httpOnly ?? false,
-      secure:   c.secure   ?? true,
+      secure: c.secure ?? true,
       sameSite: c.sameSite === 'no_restriction' ? 'None'
-               : c.sameSite === 'lax'           ? 'Lax'
-               : c.sameSite === 'strict'        ? 'Strict'
-               : 'None',
+        : c.sameSite === 'lax' ? 'Lax'
+          : c.sameSite === 'strict' ? 'Strict'
+            : 'None',
     }));
   }
 
@@ -413,7 +413,7 @@ export class ChatGPTImageBot {
 
     await this.page.goto(urlToGo, {
       waitUntil: 'domcontentloaded',
-      timeout:   this.pageTimeout,
+      timeout: this.pageTimeout,
     });
 
     // Wait for page JS to load
@@ -467,9 +467,9 @@ export class ChatGPTImageBot {
     for (let i = 0; i < 20; i++) {
       // 1. Check if chat input is already visible. If so, return immediately!
       const isInputVisible = await this.page.evaluate(() => {
-        const input = document.querySelector('#prompt-textarea') || 
-                      document.querySelector('div[contenteditable="true"]') ||
-                      document.querySelector('textarea[placeholder]');
+        const input = document.querySelector('#prompt-textarea') ||
+          document.querySelector('div[contenteditable="true"]') ||
+          document.querySelector('textarea[placeholder]');
         if (!input) return false;
         const rect = input.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0;
@@ -482,10 +482,10 @@ export class ChatGPTImageBot {
       // 2. Check if a Cloudflare challenge is present
       const hasChallenge = await this.page.evaluate(() => {
         return document.title.includes('Just a moment') ||
-               document.body?.innerText?.includes('Verify you are human') ||
-               document.body?.innerText?.includes('checking your browser') ||
-               !!document.querySelector('iframe[src*="cloudflare"]') ||
-               !!document.querySelector('iframe[src*="challenges"]');
+          document.body?.innerText?.includes('Verify you are human') ||
+          document.body?.innerText?.includes('checking your browser') ||
+          !!document.querySelector('iframe[src*="cloudflare"]') ||
+          !!document.querySelector('iframe[src*="challenges"]');
       }).catch(() => false);
 
       if (!hasChallenge) {
@@ -514,7 +514,7 @@ export class ChatGPTImageBot {
           const iframeBox = await iframeElement.boundingBox().catch(() => null);
           if (iframeBox && iframeBox.width > 0 && iframeBox.height > 0) {
             console.log(`    👉 Found Turnstile iframe box: x=${iframeBox.x}, y=${iframeBox.y}, w=${iframeBox.width}, h=${iframeBox.height}`);
-            
+
             // Try content frame click first
             const frame = await iframeElement.contentFrame().catch(() => null);
             let clickedInsideFrame = false;
@@ -533,7 +533,7 @@ export class ChatGPTImageBot {
                   const elBox = await checkEl.boundingBox().catch(() => null);
                   if (elBox && elBox.width > 0 && elBox.height > 0) {
                     console.log(`      ↳ Found checkbox target inside frame: "${target}", clicking...`);
-                    await checkEl.click({ force: true, timeout: 3000 }).catch(() => {});
+                    await checkEl.click({ force: true, timeout: 3000 }).catch(() => { });
                     clickedInsideFrame = true;
                     break;
                   }
@@ -546,7 +546,7 @@ export class ChatGPTImageBot {
             const clickX = iframeBox.x + Math.min(35, iframeBox.width / 2);
             const clickY = iframeBox.y + (iframeBox.height / 2);
             console.log(`      ↳ Performing parent-level mouse click at coordinates: (${clickX}, ${clickY})`);
-            await this.page.mouse.click(clickX, clickY).catch(() => {});
+            await this.page.mouse.click(clickX, clickY).catch(() => { });
             await this.page.waitForTimeout(2000);
           }
         } else {
@@ -569,7 +569,7 @@ export class ChatGPTImageBot {
                   const box = await el.boundingBox().catch(() => null);
                   if (box && box.width > 0 && box.height > 0) {
                     console.log(`    👉 Clicked Turnstile element: "${target}" in iframe (loop fallback)`);
-                    await el.click({ force: true, timeout: 2000 }).catch(() => {});
+                    await el.click({ force: true, timeout: 2000 }).catch(() => { });
                     await this.page.waitForTimeout(1000);
                     break;
                   }
@@ -647,8 +647,8 @@ export class ChatGPTImageBot {
 
       // Save the image
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const slug      = (saveAs || prompt.slice(0, 40).replace(/[^a-zA-Z0-9]/g, '_')).toLowerCase();
-      const filename  = `${slug}_${timestamp}.png`;
+      const slug = (saveAs || prompt.slice(0, 40).replace(/[^a-zA-Z0-9]/g, '_')).toLowerCase();
+      const filename = `${slug}_${timestamp}.png`;
       const savedPath = path.join(this.outputDir, filename);
 
       if (result.type === 'element') {
@@ -675,7 +675,7 @@ export class ChatGPTImageBot {
   _buildPrompt(userPrompt) {
     const lower = userPrompt.toLowerCase();
     const hasKeyword = ['generate', 'create', 'draw', 'make', 'paint', 'design',
-                        'image', 'picture', 'photo', 'illustration', 'banner'].some(k => lower.includes(k));
+      'image', 'picture', 'photo', 'illustration', 'banner'].some(k => lower.includes(k));
     // Keep the prompt short and natural — just ask for the image
     if (hasKeyword) return userPrompt;
     return `Create an image of: ${userPrompt}`;
@@ -709,7 +709,7 @@ export class ChatGPTImageBot {
   //  Focus the chat text input
   // ──────────────────────────────────────────────
   async _focusChatInput() {
-    await this.page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)).catch(() => {});
+    await this.page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)).catch(() => { });
     await this.page.waitForTimeout(500);
     await this._bypassCloudflare();
 
@@ -855,10 +855,10 @@ export class ChatGPTImageBot {
   // ──────────────────────────────────────────────
   async _waitForImage() {
     const startTime = Date.now();
-    const timeout   = this.imageTimeout;
+    const timeout = this.imageTimeout;
 
-    let wasGenerating  = false;
-    let doneAt         = null;
+    let wasGenerating = false;
+    let doneAt = null;
     let screenshotCount = 0;
 
     console.log('🔄 Polling for generated image...');
@@ -906,7 +906,7 @@ export class ChatGPTImageBot {
 
           const errorText = await this.page.evaluate(() => {
             const msgs = document.querySelectorAll('[data-message-author-role="assistant"]');
-            const last  = msgs[msgs.length - 1];
+            const last = msgs[msgs.length - 1];
             return last?.innerText?.trim() || null;
           }).catch(() => null);
 
@@ -1035,11 +1035,11 @@ export class ChatGPTImageBot {
     try {
       const currentUrl = this.page.url();
       const isMainPage = currentUrl === this.chatgptUrl || currentUrl === `${this.chatgptUrl}/` || currentUrl === `${this.chatgptUrl}/?oai-dm=1`;
-      
+
       const isInputVisible = await this.page.evaluate(() => {
-        const input = document.querySelector('#prompt-textarea') || 
-                      document.querySelector('div[contenteditable="true"]') ||
-                      document.querySelector('textarea[placeholder]');
+        const input = document.querySelector('#prompt-textarea') ||
+          document.querySelector('div[contenteditable="true"]') ||
+          document.querySelector('textarea[placeholder]');
         if (!input) return false;
         const rect = input.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0;
@@ -1067,7 +1067,7 @@ export class ChatGPTImageBot {
             // fallback to client routing
             window.location.href = '/';
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       // Wait a moment for transition and chat input readiness

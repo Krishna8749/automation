@@ -429,7 +429,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 });
 
 // OpenAI-Compatible Models Endpoint
-app.get('/v1/models', authMiddleware, (req, res) => {
+app.get(['/v1/models', '/models', '/api/chat/models', '/api/chat/v1/models'], authMiddleware, (req, res) => {
   res.json({
     object: 'list',
     data: [
@@ -450,7 +450,7 @@ app.get('/v1/models', authMiddleware, (req, res) => {
 });
 
 // OpenAI-Compatible Chat Completions Endpoint
-app.post('/v1/chat/completions', authMiddleware, async (req, res) => {
+app.post(['/v1/chat/completions', '/chat/completions', '/api/chat/chat/completions', '/api/chat/completions'], authMiddleware, async (req, res) => {
   const { messages, model = 'gpt-4o', stream = false } = req.body;
   const keyRecord = req.apiKeyRecord;
 
