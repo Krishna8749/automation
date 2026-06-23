@@ -273,6 +273,7 @@ app.get('/api/debug', authMiddleware, async (req, res) => {
 
     let screenshotBase64 = null;
     let iframes = [];
+    let inputsInfo = [];
     if (isHealthy) {
       const buffer = await bot.page.screenshot({ type: 'png' }).catch(() => null);
       if (buffer) {
@@ -303,6 +304,24 @@ app.get('/api/debug', authMiddleware, async (req, res) => {
         findIframes(document);
         return list;
       }).catch(() => []);
+
+      inputsInfo = await bot.page.evaluate(() => {
+        const found = [];
+        const elements = document.querySelectorAll('textarea, [contenteditable="true"], [name*="prompt"], [placeholder*="Ask"], [placeholder*="Message"]');
+        for (const el of elements) {
+          const r = el.getBoundingClientRect();
+          found.push({
+            tagName: el.tagName,
+            id: el.id,
+            name: el.getAttribute('name'),
+            className: el.className,
+            placeholder: el.getAttribute('placeholder'),
+            visible: r.width > 0 && r.height > 0,
+            rect: { x: r.x, y: r.y, w: r.width, h: r.height }
+          });
+        }
+        return found;
+      }).catch(() => []);
     }
 
     res.json({
@@ -311,6 +330,7 @@ app.get('/api/debug', authMiddleware, async (req, res) => {
       url,
       title,
       iframes,
+      inputsInfo,
       screenshot: screenshotBase64 ? `data:image/png;base64,${screenshotBase64}` : null,
       html: isHealthy ? await bot.page.content().catch(() => '') : null,
       keysFileExists: await fs.pathExists(KEYS_FILE),
