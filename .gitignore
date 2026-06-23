@@ -84,3 +84,6 @@ daily-banners/
 gmail-workflows/gmail-cookies.json
 gmail-workflows/gmail-profile/
 
+# ChatGPT thread session mapping
+threads.json
+

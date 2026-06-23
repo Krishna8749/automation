@@ -52,6 +52,7 @@ if (DATA_DIR) {
 
 const COOKIES_FILE = DATA_DIR ? path.join(DATA_DIR, 'cookies.json') : path.join(__dirname, 'chatgpt-image-automation', 'cookies.json');
 const KEYS_FILE = DATA_DIR ? path.join(DATA_DIR, 'api-keys.json') : path.join(__dirname, 'api-keys.json');
+const THREADS_FILE = DATA_DIR ? path.join(DATA_DIR, 'threads.json') : path.join(__dirname, 'threads.json');
 
 // Ensure key 'sk-cgp-whatsapp-owner' exists in KEYS_FILE
 try {
@@ -138,6 +139,33 @@ async function updateKeyUrl(key, url) {
     }
   } catch (err) {
     console.error('Failed to save key URL mapping:', err);
+  }
+}
+
+async function getThreadUrl(apiKey, threadId) {
+  try {
+    if (await fs.pathExists(THREADS_FILE)) {
+      const data = await fs.readJson(THREADS_FILE);
+      return data[apiKey]?.[threadId] || null;
+    }
+  } catch (err) {
+    console.error('Failed to read threads mapping:', err.message);
+  }
+  return null;
+}
+
+async function saveThreadUrl(apiKey, threadId, url) {
+  try {
+    let data = {};
+    if (await fs.pathExists(THREADS_FILE)) {
+      data = await fs.readJson(THREADS_FILE);
+    }
+    if (!data[apiKey]) data[apiKey] = {};
+    data[apiKey][threadId] = url;
+    await fs.writeJson(THREADS_FILE, data, { spaces: 2 });
+    console.log(chalk.green(`💾 Mapped Thread "${threadId}" for API Key to session: ${url}`));
+  } catch (err) {
+    console.error('Failed to save thread mapping:', err.message);
   }
 }
 
@@ -475,16 +503,16 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Chat Endpoint (POST /api/chat)
 app.post('/api/chat', authMiddleware, async (req, res) => {
-  const { message } = req.body;
+  const { message, thread_id } = req.body;
   const keyRecord = req.apiKeyRecord;
+  const threadId = req.headers['x-thread-id'] || thread_id || 'default';
 
   if (!message) {
     return res.status(400).json({ error: 'Message payload is required' });
   }
 
-  console.log(chalk.cyan(`\n💬 Prompt from "${keyRecord.label}": "${message.slice(0, 60)}..."`));
+  console.log(chalk.cyan(`\n💬 Prompt from "${keyRecord.label}" (Thread: ${threadId}): "${message.slice(0, 60)}..."`));
 
   try {
     await botQueue.add(async () => {
@@ -494,18 +522,20 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
         throw new Error('ChatGPT bot engine is offline.');
       }
 
+      const threadUrl = await getThreadUrl(keyRecord.key, threadId) || keyRecord.url;
+
       // ── Session Switching Logic ──
       const currentUrl = localBot.page.url();
-      if (keyRecord.url) {
-        if (currentUrl !== keyRecord.url) {
-          console.log(chalk.yellow(`🔄 Switching thread context to: ${keyRecord.url}`));
-          await localBot.page.goto(keyRecord.url, { waitUntil: 'domcontentloaded', timeout: localBot.pageTimeout });
+      if (threadUrl) {
+        if (currentUrl !== threadUrl) {
+          console.log(chalk.yellow(`🔄 Switching thread context to: ${threadUrl}`));
+          await localBot.page.goto(threadUrl, { waitUntil: 'domcontentloaded', timeout: localBot.pageTimeout });
           await localBot.page.waitForTimeout(3000);
           await localBot._bypassCloudflare();
           await localBot._waitForChatReady();
         }
       } else {
-        console.log(chalk.yellow(`🆕 Starting fresh thread context for: "${keyRecord.label}"`));
+        console.log(chalk.yellow(`🆕 Starting fresh thread context for: "${keyRecord.label}" (Thread ID: ${threadId})`));
         await localBot.newChat();
       }
 
@@ -520,9 +550,12 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 
       // Capture dynamic thread URL
       const latestUrl = localBot.page.url();
-      if (!keyRecord.url && latestUrl.startsWith(`${localBot.chatgptUrl}/c/`)) {
-        keyRecord.url = latestUrl;
-        await updateKeyUrl(keyRecord.key, latestUrl);
+      if (!threadUrl && latestUrl.startsWith(`${localBot.chatgptUrl}/c/`)) {
+        await saveThreadUrl(keyRecord.key, threadId, latestUrl);
+        if (threadId === 'default') {
+          keyRecord.url = latestUrl;
+          await updateKeyUrl(keyRecord.key, latestUrl);
+        }
       }
 
       const text = await getLatestAssistantText(localBot.page);
@@ -562,8 +595,9 @@ app.get(['/v1/models', '/models', '/api/chat/models', '/api/chat/v1/models'], au
 
 // OpenAI-Compatible Chat Completions Endpoint
 app.post(['/v1/chat/completions', '/chat/completions', '/api/chat/chat/completions', '/api/chat/completions'], authMiddleware, async (req, res) => {
-  const { messages, model = 'gpt-4o', stream = false } = req.body;
+  const { messages, model = 'gpt-4o', stream = false, thread_id } = req.body;
   const keyRecord = req.apiKeyRecord;
+  const threadId = req.headers['x-thread-id'] || thread_id || 'default';
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({
@@ -583,7 +617,7 @@ app.post(['/v1/chat/completions', '/chat/completions', '/api/chat/chat/completio
     ? lastUserMsg.content
     : JSON.stringify(lastUserMsg.content);
 
-  console.log(chalk.cyan(`\n💬 Prompt from "${keyRecord.label}": "${promptText.slice(0, 60)}..."`));
+  console.log(chalk.cyan(`\n💬 Prompt from "${keyRecord.label}" (Thread: ${threadId}): "${promptText.slice(0, 60)}..."`));
 
   try {
     await botQueue.add(async () => {
@@ -593,18 +627,20 @@ app.post(['/v1/chat/completions', '/chat/completions', '/api/chat/chat/completio
         throw new Error('ChatGPT bot engine is offline.');
       }
 
+      const threadUrl = await getThreadUrl(keyRecord.key, threadId) || keyRecord.url;
+
       // ── Session Switching Logic ──
       const currentUrl = localBot.page.url();
-      if (keyRecord.url) {
-        if (currentUrl !== keyRecord.url) {
-          console.log(chalk.yellow(`🔄 Switching thread context to: ${keyRecord.url}`));
-          await localBot.page.goto(keyRecord.url, { waitUntil: 'domcontentloaded', timeout: localBot.pageTimeout });
+      if (threadUrl) {
+        if (currentUrl !== threadUrl) {
+          console.log(chalk.yellow(`🔄 Switching thread context to: ${threadUrl}`));
+          await localBot.page.goto(threadUrl, { waitUntil: 'domcontentloaded', timeout: localBot.pageTimeout });
           await localBot.page.waitForTimeout(3000);
           await localBot._bypassCloudflare();
           await localBot._waitForChatReady();
         }
       } else {
-        console.log(chalk.yellow(`🆕 Starting fresh thread context for: "${keyRecord.label}"`));
+        console.log(chalk.yellow(`🆕 Starting fresh thread context for: "${keyRecord.label}" (Thread ID: ${threadId})`));
         await localBot.newChat();
       }
 
@@ -665,9 +701,12 @@ app.post(['/v1/chat/completions', '/chat/completions', '/api/chat/chat/completio
 
           // Capture dynamic thread URL
           const currentUrl = localBot.page.url();
-          if (!keyRecord.url && currentUrl.startsWith(`${localBot.chatgptUrl}/c/`)) {
-            keyRecord.url = currentUrl;
-            await updateKeyUrl(keyRecord.key, currentUrl);
+          if (!threadUrl && currentUrl.startsWith(`${localBot.chatgptUrl}/c/`)) {
+            await saveThreadUrl(keyRecord.key, threadId, currentUrl);
+            if (threadId === 'default') {
+              keyRecord.url = currentUrl;
+              await updateKeyUrl(keyRecord.key, currentUrl);
+            }
           }
 
           if (currentText.length > lastText.length && currentText.startsWith(lastText)) {
@@ -700,9 +739,12 @@ app.post(['/v1/chat/completions', '/chat/completions', '/api/chat/chat/completio
 
         // Capture dynamic thread URL
         const currentUrl = localBot.page.url();
-        if (!keyRecord.url && currentUrl.startsWith(`${localBot.chatgptUrl}/c/`)) {
-          keyRecord.url = currentUrl;
-          await updateKeyUrl(keyRecord.key, currentUrl);
+        if (!threadUrl && currentUrl.startsWith(`${localBot.chatgptUrl}/c/`)) {
+          await saveThreadUrl(keyRecord.key, threadId, currentUrl);
+          if (threadId === 'default') {
+            keyRecord.url = currentUrl;
+            await updateKeyUrl(keyRecord.key, currentUrl);
+          }
         }
 
         const currentText = await getLatestAssistantText(localBot.page);

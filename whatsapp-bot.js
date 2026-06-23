@@ -199,7 +199,7 @@ export async function initWhatsApp() {
           await chat.sendStateRecording();
           
           // Get text response from ChatGPT
-          const gptResponse = await queryChatGPTCompletions(transcribedText);
+          const gptResponse = await queryChatGPTCompletions(transcribedText, null, from);
           console.log(`🤖 Reply text: "${gptResponse.substring(0, 50)}..."`);
           
           // Generate TTS
@@ -299,7 +299,7 @@ export async function initWhatsApp() {
         const chat = await msg.getChat();
         await chat.sendStateTyping();
 
-        let reply = await queryChatGPTCompletions(text);
+        let reply = await queryChatGPTCompletions(text, null, from);
 
         const articleMatch = reply.match(/\[ACTION:\s*POST_LINKEDIN_ARTICLE\]\s*Topic:\s*(.+)/i);
         const postMatch = reply.match(/\[ACTION:\s*POST_LINKEDIN_POST\]\s*Topic:\s*(.+)/i);
@@ -375,7 +375,7 @@ export async function initWhatsApp() {
         console.log(`👥 Group chat message received from ${msg.author} in ${chat.name}: "${text.substring(0, 50)}"`);
         
         // Keywords to quickly filter out irrelevant group messages before calling ChatGPT
-        const keywords = ['app', 'website', 'seo', 'developer', 'development', 'software', 'lead', 'design', 'coder', 'programming', 'application', 'site', 'mobile'];
+        const keywords = ['app', 'website', 'seo', 'seio', 'developer', 'development', 'software', 'lead', 'leads', 'design', 'coder', 'programming', 'application', 'site', 'mobile'];
         const textLower = text.toLowerCase();
         const hasKeyword = keywords.some(k => textLower.includes(k));
         
@@ -389,7 +389,7 @@ Analyze this message: "${text}".
 If the message is looking for, asking for, or discussing a need for digital services (like app development, website, custom software, UI/UX design, or SEO), write a very short, precise, and professional reply (1-2 lines max) offering our services and looking exactly like a quick reply from Sateesh Kumar.
 If the message is NOT relevant to our digital services, reply with exactly the word "IRRELEVANT" and nothing else.`;
             
-            const reply = await queryChatGPTCompletions(text, groupContext);
+            const reply = await queryChatGPTCompletions(text, groupContext, from);
             if (reply && reply.trim() !== 'IRRELEVANT' && !reply.includes('IRRELEVANT')) {
               console.log(`🤖 Auto-replying to group chat: "${reply}"`);
               await msg.reply(reply);
@@ -413,7 +413,7 @@ Keep the response extremely precise, brief, and short (1-2 lines max).
 Sound professional, friendly, helpful, and natural—exactly like Sateesh Kumar replying quickly from their phone.
 Do not use placeholders. Provide a real, professional response.`;
         
-        const reply = await queryChatGPTCompletions(text, clientContext);
+        const reply = await queryChatGPTCompletions(text, clientContext, from);
         if (reply && reply.trim()) {
           console.log(`🤖 Auto-replying to client DM: "${reply}"`);
           await msg.reply(reply);
@@ -431,7 +431,7 @@ Do not use placeholders. Provide a real, professional response.`;
   });
 }
 
-export function queryChatGPTCompletions(prompt, customSystemContext = null) {
+export function queryChatGPTCompletions(prompt, customSystemContext = null, threadId = 'default') {
   return new Promise((resolve, reject) => {
     const systemContext = customSystemContext || `[SYSTEM NOTE: You are the Web Nova Crew AI Assistant on WhatsApp. YOU HAVE BACKGROUND AUTOMATION SCRIPTS ATTACHED TO YOU.
 If the user wants you to publish an article or post to LinkedIn, YOU CAN DO IT! You MUST trigger the automation by including this exact string on a new line in your reply:
@@ -460,7 +460,8 @@ Do NOT tell the user to use a command. YOU execute the command yourself using th
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer sk-cgp-whatsapp-owner',
-        'Content-Length': Buffer.byteLength(postData)
+        'Content-Length': Buffer.byteLength(postData),
+        'X-Thread-ID': threadId
       }
     };
 
