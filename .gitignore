@@ -68,3 +68,19 @@ test-multi-session.js
 test-openai-api.js
 test-chat-api.js
 
+# WhatsApp sessions & cache
+whatsapp-session*/
+.wwebjs_cache/
+
+# Daily banners & temp assets
+daily-banners/
+*.mp3
+*.wav
+*.ogg
+*.png
+*.html
+
+# Gmail credentials & profile
+gmail-workflows/gmail-cookies.json
+gmail-workflows/gmail-profile/
+

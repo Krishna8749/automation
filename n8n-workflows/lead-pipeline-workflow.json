@@ -1,0 +1,240 @@
+{
+  "name": "GMB Lead Generation & WhatsApp/Gmail Outreach",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e668fd9a-6c1b-43be-a77a-241f87968ff2",
+      "name": "When clicking \"Execute Workflow\"",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "command": "node \"C:\\\\Linkedin Posting\\\\n8n-workflows\\\\gmb-scraper.js\" \"restaurants Miami\" 5"
+      },
+      "id": "c62c2f6d-74d7-4638-aa2f-e8b2450df111",
+      "name": "Run GMB Scraper",
+      "type": "n8n-nodes-base.executeCommandLine",
+      "typeVersion": 1,
+      "position": [
+        440,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const rawOutput = $input.item.json.stdout;\n  const leads = JSON.parse(rawOutput);\n  return leads.map(l => ({ json: l }));\n} catch (err) {\n  return [{ json: { error: err.message } }];\n}"
+      },
+      "id": "97e682e8-d102-4d2a-a92c-80a5813bf2a3",
+      "name": "Parse Scraper JSON Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/chat",
+        "sendHeaders": true,
+        "headersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer sk-cgp-whatsapp-owner"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "message",
+              "value": "={{ 'Analyze this business lead and extract details. Check if they have a mobile app or a poor mobile site, and write a personalized HTML cold pitch. Business: ' + $json.name + ', website: ' + $json.website + ', phone: ' + $json.phone + '. Scraped Website Text: ' + $json.websiteText + '. Provide your response strictly in the following JSON format: {\"hasMobileApp\": false, \"emails\": [\"contact@domain.com\"], \"pitchHtml\": \"...\"}. IMPORTANT: The HTML inside the pitchHtml string MUST use single quotes (\\') for all attributes (e.g. class=\\'container\\') to prevent JSON double-quote string escaping issues. Return ONLY the raw JSON object, without any markdown code block wrappers (like \\`\\`\\`json).' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f5e921d7-21fb-481d-b8d9-399fa8f5223c",
+      "name": "Query Local ChatGPT API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        880,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  // The API returns text. We need to extract the JSON block from it.\n  const gptText = $input.item.json.response || $input.item.json.text || '';\n  const jsonMatch = gptText.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    let jsonStr = jsonMatch[0];\n    // Sanitize unescaped control characters (like raw newlines) in the LLM response JSON\n    jsonStr = jsonStr.replace(/[\\u0000-\\u001F]+/g, (match) => {\n      if (match.includes('\\n')) return '\\\\n';\n      if (match.includes('\\r')) return '\\\\r';\n      if (match.includes('\\t')) return '\\\\t';\n      return '';\n    });\n    const parsed = JSON.parse(jsonStr);\n    return {\n      json: {\n        name: $node[\"Parse Scraper JSON Output\"].json.name,\n        website: $node[\"Parse Scraper JSON Output\"].json.website,\n        phone: $node[\"Parse Scraper JSON Output\"].json.phone,\n        hasMobileApp: parsed.hasMobileApp,\n        emails: parsed.emails && parsed.emails.length > 0 ? parsed.emails : $node[\"Parse Scraper JSON Output\"].json.emails,\n        pitchHtml: parsed.pitchHtml\n      }\n    };\n  }\n  return { json: { error: 'No JSON found in response', raw: gptText } };\n} catch (err) {\n  return { json: { error: err.message } };\n}"
+      },
+      "id": "672df9b7-1c4b-489e-b9b5-4b53ef9281a4",
+      "name": "Parse ChatGPT Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasMobileApp }}",
+              "value2": false
+            }
+          ],
+          "string": [
+            {
+              "value1": "={{ $json.emails && $json.emails.length > 0 ? $json.emails[0] : '' }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        },
+        "combineOperation": "all"
+      },
+      "id": "bc82d61d-8419-482a-a92c-8a1a2b3c4d5e",
+      "name": "Filter Out Leads with App or No Email",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=node -e \"require('fs').writeFileSync('temp_email.html', process.argv[1])\" \"{{ $json.pitchHtml }}\" && node \"C:\\\\Linkedin Posting\\\\n8n-workflows\\\\send-individual-email.js\" --to=\"{{ $json.emails[0] }}\" --cc=\"sales@webnovacrew.com\" --subject=\"App Development Opportunity for {{ $json.name }}\" --bodyFile=\"temp_email.html\""
+      },
+      "id": "d76c8c4a-6bf8-468e-a22f-d890562e6e3c",
+      "name": "Send Gmail Outreach",
+      "type": "n8n-nodes-base.executeCommandLine",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/whatsapp/send",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "message",
+              "value": "=🤖 *n8n Outreach Alert*:\nSent cold email report to *{{ $json.name }}* ({{ $json.emails[0] }}) pitching custom app/website development!"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e6a2b89f-d234-4b5c-b6a8-a89c0d2e3f4e",
+      "name": "Send WhatsApp Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1800,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking \"Execute Workflow\"": {
+      "main": [
+        [
+          {
+            "node": "Run GMB Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run GMB Scraper": {
+      "main": [
+        [
+          {
+            "node": "Parse Scraper JSON Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Scraper JSON Output": {
+      "main": [
+        [
+          {
+            "node": "Query Local ChatGPT API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Local ChatGPT API": {
+      "main": [
+        [
+          {
+            "node": "Parse ChatGPT Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse ChatGPT Response": {
+      "main": [
+        [
+          {
+            "node": "Filter Out Leads with App or No Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Out Leads with App or No Email": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail Outreach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail Outreach": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "gmb-outreach-pipeline",
+  "meta": {
+    "templateId": "gmb-lead-generation-whatsapp-gmail"
+  }
+}

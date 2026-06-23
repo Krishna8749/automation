@@ -301,7 +301,127 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial loads
   checkHealth();
   fetchKeys();
+  checkWhatsAppStatus();
 
   // Intervals
   setInterval(checkHealth, 5000);
+  setInterval(checkWhatsAppStatus, 3000);
+
+  // ── WhatsApp Web Command Relay Functions ──────────────────────
+  const whatsappStatusBody = document.getElementById('whatsappStatusBody');
+
+  async function checkWhatsAppStatus() {
+    try {
+      const res = await fetch('/api/whatsapp/status');
+      if (!res.ok) throw new Error('Failed to fetch WhatsApp status');
+      const data = await res.json();
+      renderWhatsAppStatus(data);
+    } catch (err) {
+      console.error(err);
+      if (whatsappStatusBody) {
+        whatsappStatusBody.innerHTML = `
+          <div class="wa-error">
+            <i data-lucide="alert-triangle" class="wa-error-icon"></i>
+            <span>Failed to query WhatsApp status.</span>
+          </div>
+        `;
+        lucide.createIcons();
+      }
+    }
+  }
+
+  function renderWhatsAppStatus(data) {
+    if (!whatsappStatusBody) return;
+
+    if (data.status === 'connecting') {
+      whatsappStatusBody.innerHTML = `
+        <div class="wa-loading">
+          <div class="loading-spinner"></div>
+          <span>Connecting/Initializing WhatsApp...</span>
+        </div>
+      `;
+    } else if (data.status === 'qr') {
+      if (data.qr) {
+        whatsappStatusBody.innerHTML = `
+          <div class="wa-qr-container">
+            <img class="wa-qr-image" src="${data.qr}" alt="WhatsApp QR Code">
+            <p>Scan this QR code with WhatsApp on your phone (9872364476) to link the bot.</p>
+          </div>
+        `;
+      } else {
+        whatsappStatusBody.innerHTML = `
+          <div class="wa-loading">
+            <div class="loading-spinner"></div>
+            <span>Generating QR code...</span>
+          </div>
+        `;
+      }
+    } else if (data.status === 'connected') {
+      whatsappStatusBody.innerHTML = `
+        <div class="wa-connected">
+          <div class="wa-connected-badge">
+            <span class="badge-pulse"></span>
+            Connected
+          </div>
+          <div class="wa-phone-number">Logged in: ${data.number || '9872364476'}</div>
+          <button class="btn-wa-logout" id="waLogoutBtn">
+            <i data-lucide="log-out" style="width: 14px; height: 14px;"></i>
+            Disconnect / Log Out
+          </button>
+        </div>
+      `;
+      const btn = document.getElementById('waLogoutBtn');
+      if (btn) btn.onclick = logoutWhatsApp;
+    } else { // disconnected
+      whatsappStatusBody.innerHTML = `
+        <div class="wa-connected">
+          <div class="wa-connected-badge" style="background: rgba(244,63,94,0.12); border-color: rgba(244,63,94,0.3); color: #fda4af;">
+            Disconnected
+          </div>
+          ${data.error ? `<div class="wa-error-message" style="color: #fda4af; font-size: 0.8rem; text-align: center; margin-bottom: 0.5rem; max-width: 250px; word-break: break-all;">${data.error}</div>` : ''}
+          <button class="btn btn-primary" id="waRetryBtn" style="padding: 0.4rem 1rem; font-size: 0.8rem;">
+            <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> Retry Connection
+          </button>
+        </div>
+      `;
+      const btn = document.getElementById('waRetryBtn');
+      if (btn) btn.onclick = retryWhatsApp;
+    }
+    lucide.createIcons();
+  }
+
+  async function logoutWhatsApp() {
+    if (!confirm('Are you sure you want to disconnect WhatsApp? You will need to scan the QR code again to link it.')) return;
+    try {
+      whatsappStatusBody.innerHTML = `
+        <div class="wa-loading">
+          <div class="loading-spinner"></div>
+          <span>Disconnecting...</span>
+        </div>
+      `;
+      const res = await fetch('/api/whatsapp/logout', { method: 'POST' });
+      if (!res.ok) throw new Error('Logout request failed');
+      showToast('WhatsApp session cleared successfully.');
+      checkWhatsAppStatus();
+    } catch (err) {
+      showToast(err.message || 'Failed to logout WhatsApp', 'error');
+    }
+  }
+
+  async function retryWhatsApp() {
+    try {
+      whatsappStatusBody.innerHTML = `
+        <div class="wa-loading">
+          <div class="loading-spinner"></div>
+          <span>Retrying connection...</span>
+        </div>
+      `;
+      const res = await fetch('/api/whatsapp/logout', { method: 'POST' }); // Logging out/destroys client and recreates
+      if (!res.ok) throw new Error('Retry connection failed');
+      showToast('WhatsApp connection reset initiated.');
+      checkWhatsAppStatus();
+    } catch (err) {
+      showToast(err.message || 'Failed to retry connection', 'error');
+    }
+  }
 });

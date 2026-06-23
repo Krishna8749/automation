@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
 import fs from 'fs-extra';
+import { initWhatsApp, whatsappState } from './whatsapp-bot.js';
 
 dotenv.config();
 
@@ -51,6 +52,45 @@ if (DATA_DIR) {
 
 const COOKIES_FILE = DATA_DIR ? path.join(DATA_DIR, 'cookies.json') : path.join(__dirname, 'chatgpt-image-automation', 'cookies.json');
 const KEYS_FILE = DATA_DIR ? path.join(DATA_DIR, 'api-keys.json') : path.join(__dirname, 'api-keys.json');
+
+// Ensure key 'sk-cgp-whatsapp-owner' exists in KEYS_FILE
+try {
+  if (fs.existsSync(KEYS_FILE)) {
+    const data = fs.readJsonSync(KEYS_FILE);
+    if (!data.keys.some(k => k.key === 'sk-cgp-whatsapp-owner')) {
+      data.keys.push({
+        key: 'sk-cgp-whatsapp-owner',
+        label: 'WhatsApp Owner Bot Key',
+        url: null,
+        createdAt: new Date().toISOString()
+      });
+      fs.writeJsonSync(KEYS_FILE, data, { spaces: 2 });
+      console.log(chalk.green(`🔑 Added default WhatsApp Owner Bot Key to api-keys.json`));
+    }
+  } else {
+    const defaultKeys = {
+      keys: [
+        {
+          key: "sk-cgp-3eirgct19bdrvyaosz91ak",
+          label: "Default Web Chatbot Key",
+          url: null,
+          createdAt: new Date().toISOString()
+        },
+        {
+          key: "sk-cgp-whatsapp-owner",
+          label: "WhatsApp Owner Bot Key",
+          url: null,
+          createdAt: new Date().toISOString()
+        }
+      ]
+    };
+    fs.ensureDirSync(path.dirname(KEYS_FILE));
+    fs.writeJsonSync(KEYS_FILE, defaultKeys, { spaces: 2 });
+    console.log(chalk.green(`🔑 Created fresh api-keys.json with default and WhatsApp owner keys: ${KEYS_FILE}`));
+  }
+} catch (err) {
+  console.error('Failed to ensure WhatsApp Owner Key in keys file:', err.message);
+}
 
 // Parse CHATGPT_COOKIES env var if present and write it to COOKIES_FILE on startup
 if (process.env.CHATGPT_COOKIES) {
@@ -223,6 +263,62 @@ async function getLatestAssistantText(page) {
     return mdDiv.innerText || '';
   }).catch(() => '');
 }
+
+// ── WhatsApp Endpoints ──────────────────────────────────────────
+
+// GET /api/whatsapp/status - Return WhatsApp bot connection state
+app.get('/api/whatsapp/status', (req, res) => {
+  res.json(whatsappState);
+});
+
+// POST /api/whatsapp/send - Send a WhatsApp message
+app.post('/api/whatsapp/send', async (req, res) => {
+  const { number, message } = req.body;
+  if (!message) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+  try {
+    const { whatsappClient, whatsappState } = await import('./whatsapp-bot.js');
+    if (!whatsappClient || whatsappState.status !== 'connected') {
+      return res.status(503).json({ error: 'WhatsApp client is not connected' });
+    }
+    const targetNumber = number || whatsappState.number;
+    if (!targetNumber) {
+      return res.status(400).json({ error: 'No recipient number provided and owner number is not available' });
+    }
+    const chatId = targetNumber.endsWith('@c.us') ? targetNumber : `${targetNumber}@c.us`;
+    await whatsappClient.sendMessage(chatId, message);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to send WhatsApp message via API:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/whatsapp/logout - Log out/reset WhatsApp bot session
+app.post('/api/whatsapp/logout', async (req, res) => {
+  try {
+    const { whatsappClient } = await import('./whatsapp-bot.js');
+    if (whatsappClient) {
+      // whatsappClient.logout() removed to prevent EBUSY crash
+      try {
+        await whatsappClient.destroy();
+      } catch (err) {
+        console.warn('WhatsApp Client destroy call failed:', err.message);
+      }
+    }
+    // Delete session directory
+    const sessionPath = path.join(__dirname, 'whatsapp-session-new4');
+    await fs.remove(sessionPath).catch(err => console.error('Failed to remove WhatsApp session directory:', err.message));
+    
+    // Re-initialize a clean client
+    initWhatsApp().catch(err => console.error('Failed to re-initialize WhatsApp client:', err.message));
+    
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── API Keys Management Endpoints ──────────────────────────────
 
@@ -660,4 +756,5 @@ app.post(['/v1/chat/completions', '/chat/completions', '/api/chat/chat/completio
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(chalk.bold.green(`🚀 Chat Gateway Server is running on port ${PORT}`));
   await initBot();
+  initWhatsApp().catch(err => console.error('Failed to initialize WhatsApp bot service:', err));
 });

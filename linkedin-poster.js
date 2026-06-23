@@ -106,42 +106,58 @@ export class LinkedInPoster {
   // ──────────────────────────────────────────────
   //  POST: image + text (main method)
   // ──────────────────────────────────────────────
-  async post(imagePath, title, caption) {
+  async post({ imagePath, title, caption, target = 'personal', type = 'post' }) {
     const fullCaption = caption || title;
     console.log(`\n📤 Posting to LinkedIn...`);
+    console.log(`   Target:  ${target}`);
+    console.log(`   Type:    ${type}`);
     console.log(`   Title:   ${title}`);
-    console.log(`   Image:   ${path.basename(imagePath)}`);
+    if (imagePath) console.log(`   Image:   ${path.basename(imagePath)}`);
 
     try {
       // Go to feed
-      await this.page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
+      const feedUrl = target === 'company' 
+        ? 'https://www.linkedin.com/company/web-nova-crew/admin/feed/' 
+        : 'https://www.linkedin.com/feed/';
+        
+      await this.page.goto(feedUrl, { waitUntil: 'domcontentloaded' });
       await this.page.waitForTimeout(4000); // Give extra time to load
 
       // Click "Start a post" button
-      await this._clickStartPost();
+      if (type === 'article') {
+        await this._clickWriteArticle();
+        await this.page.waitForTimeout(5000);
+        await this._fillArticle(title, fullCaption);
+      } else {
+        await this._clickStartPost();
 
-      // Wait for the post modal
-      await this.page.waitForSelector('.share-creation-state__content, .editor-content, [data-placeholder]', { timeout: 15000 });
-      await this.page.waitForTimeout(1000);
+        // Wait for the post modal
+        await this.page.waitForSelector('.share-creation-state__content, .editor-content, [data-placeholder]', { timeout: 15000 });
+        await this.page.waitForTimeout(1000);
 
-      // Type the post text
-      await this._typePostText(fullCaption);
+        // Type the post text
+        await this._typePostText(fullCaption);
 
-      // Upload image
-      await this._uploadImage(imagePath);
+        // Upload image or video if provided
+        if (imagePath) {
+          await this._uploadImage(imagePath);
+        }
 
-      // Submit
-      await this._submitPost();
+        // Submit
+        await this._submitPost();
+      }
 
       console.log('✅ Posted to LinkedIn successfully!');
       return true;
     } catch (err) {
       const ts = Date.now();
-      const sp = path.join(path.dirname(imagePath), `linkedin_error_${ts}.png`);
+      const baseDir = imagePath ? path.dirname(imagePath) : path.join(process.cwd(), 'daily-banners');
+      
+      const sp = path.join(baseDir, `linkedin_error_${ts}.png`);
       await this.page.screenshot({ path: sp, fullPage: true }).catch(() => {});
       console.log(`📸 Error screenshot saved to: ${path.basename(sp)}`);
       
-      const hp = path.join(path.dirname(imagePath), `linkedin_error_${ts}.html`);
+      const hp = path.join(baseDir, `linkedin_error_${ts}.html`);
       const html = await this.page.content().catch(() => '');
       await fs.writeFile(hp, html, 'utf-8').catch(() => {});
       console.log(`💾 Error HTML saved to: ${path.basename(hp)}`);
@@ -184,6 +200,108 @@ export class LinkedInPoster {
       } catch {
         throw new Error('❌ Could not open LinkedIn post dialog');
       }
+    }
+  }
+
+  async _clickWriteArticle() {
+    const triggers = [
+      'button[aria-label="Write article"]',
+      'button[aria-label="Write an article"]',
+      'button:has-text("Write article")',
+      'button:has-text("Write an article")',
+      'span:has-text("Write article")',
+      '[data-control-name="create_article"]',
+      'a[href*="/article/new/"]'
+    ];
+    for (const sel of triggers) {
+      try {
+        const el = await this.page.$(sel);
+        if (el && await el.isVisible()) {
+          // LinkedIn sometimes opens article writer in a new tab
+          const [newPage] = await Promise.all([
+            this.context.waitForEvent('page', { timeout: 10000 }).catch(() => null),
+            el.click()
+          ]);
+          if (newPage) {
+            this.page = newPage;
+          }
+          console.log(`  ↳ Opened article writer via: ${sel}`);
+          return;
+        }
+      } catch { /* try next */ }
+    }
+    
+    // Fallback: direct navigation
+    console.log(`  ↳ Button not found, trying direct navigation...`);
+    await this.page.goto('https://www.linkedin.com/article/new/', { waitUntil: 'domcontentloaded' });
+    await this.page.waitForTimeout(3000);
+  }
+
+  async _fillArticle(title, text) {
+    console.log('  ↳ Waiting for article editor...');
+    await this.page.waitForSelector('.ProseMirror, #article-editor-headline__textarea', { timeout: 15000 });
+    
+    // Fill Title
+    try {
+      const titleInput = await this.page.$('#article-editor-headline__textarea');
+      if (titleInput) {
+        await titleInput.click();
+        await this.page.waitForTimeout(500);
+        await titleInput.fill(title);
+      }
+    } catch (e) {
+      console.log('  ↳ Warning: Could not fill article title automatically', e.message);
+    }
+
+    // Fill body
+    try {
+      const p = await this.page.locator('.ProseMirror p').first();
+      if (p) {
+        await p.click();
+        await this.page.waitForTimeout(1000);
+        
+        // Dispatch Paste Event to activeElement
+        await this.page.evaluate((txt) => {
+          const activeEl = document.activeElement;
+          if (!activeEl) return;
+          
+          const dataTransfer = new DataTransfer();
+          dataTransfer.setData('text/plain', txt);
+          const event = new ClipboardEvent('paste', {
+            clipboardData: dataTransfer,
+            bubbles: true,
+            cancelable: true
+          });
+          activeEl.dispatchEvent(event);
+        }, text);
+        
+        console.log('  ↳ Article body injected. Waiting for draft to auto-save...');
+        await this.page.waitForTimeout(7000); // 7s to be absolutely sure the draft is saved
+      }
+    } catch (e) {
+      console.log('  ↳ Warning: Could not fill article body automatically', e.message);
+    }
+
+    // Click publish (usually opens a sidebar to add tags)
+    try {
+      const publishBtn = await this.page.waitForSelector('button.article-editor-nav__publish, button:has-text("Next"), button:has-text("Publish")', { timeout: 15000 });
+      if (publishBtn) {
+        await publishBtn.click();
+        await this.page.waitForTimeout(5000);
+        
+        // Secondary publish in the sidebar
+        const finalPublishBtn = await this.page.waitForSelector('button.share-actions__primary-action, button:has-text("Publish")', { timeout: 15000 });
+        if (finalPublishBtn) {
+          await finalPublishBtn.click();
+          await this.page.waitForTimeout(3000);
+        } else {
+          throw new Error('Could not find final Publish button');
+        }
+      } else {
+        throw new Error('Could not find primary Next/Publish button');
+      }
+    } catch (e) {
+      throw new Error('❌ Could not publish article: ' + e.message);
     }
   }
 

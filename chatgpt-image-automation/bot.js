@@ -742,56 +742,53 @@ export class ChatGPTImageBot {
   //  Type the prompt into the input
   // ──────────────────────────────────────────────
   async _typePrompt(text) {
-    // ChatGPT uses ProseMirror — inject text via a paste/input event (instant, reliable)
-    // This avoids keyboard.type() which can be slow or interrupted by page navigation
-
-    // First, make sure the ProseMirror div is clicked/focused
-    const el = await this.page.$('#prompt-textarea');
-    if (el) {
-      await el.click();
-      await this.page.waitForTimeout(400);
-    }
-
-    // Clear existing content
-    await this.page.keyboard.press('Control+a');
-    await this.page.keyboard.press('Backspace');
-    await this.page.waitForTimeout(200);
-
-    // Inject text by dispatching a paste event with clipboardData
-    // ProseMirror handles paste events properly and updates React state
-    const injected = await this.page.evaluate((txt) => {
-      const editor = document.getElementById('prompt-textarea');
-      if (!editor) return false;
-
-      editor.focus();
-
-      // Method 1: dispatchEvent with paste clipboardData
-      const dt = new DataTransfer();
-      dt.setData('text/plain', txt);
-      const pasteEvent = new ClipboardEvent('paste', {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: dt,
-      });
-      editor.dispatchEvent(pasteEvent);
-      return (editor.innerText || '').trim().length > 0;
-    }, text);
-
-    if (injected) {
-      console.log(`  ↳ Prompt injected via paste event (${text.length} chars)`);
-      await this.page.waitForTimeout(600);
-      return;
-    }
-
-    // Fallback: use Playwright locator to type (fires input events)
-    console.log('  ↳ Paste injection failed, using locator type...');
+    console.log('  ↳ Preparing to type prompt via native paste...');
     try {
-      await this.page.locator('#prompt-textarea').pressSequentially(text, { delay: 20 });
-      console.log(`  ↳ Prompt typed via pressSequentially`);
+      const loc = this.page.locator('#prompt-textarea');
+      if (await loc.count() > 0) {
+        await loc.click();
+        
+        // Use evaluate to clear the ProseMirror content completely
+        await this.page.evaluate(() => {
+          const editor = document.getElementById('prompt-textarea');
+          if (editor) {
+            editor.innerHTML = '<p><br></p>'; // Standard empty ProseMirror state
+          }
+        });
+        await this.page.waitForTimeout(100);
+        
+        await loc.click();
+        
+        // Dispatch a paste event which is the most reliable way to inject text into ProseMirror
+        await this.page.evaluate((txt) => {
+           const editor = document.getElementById('prompt-textarea');
+           const dt = new DataTransfer();
+           dt.setData('text/plain', txt);
+           const evt = new ClipboardEvent('paste', {
+             clipboardData: dt,
+             bubbles: true,
+             cancelable: true
+           });
+           editor.dispatchEvent(evt);
+        }, text);
+        
+        console.log(`  ↳ Prompt pasted via event dispatch (${text.length} chars)`);
+        
+        await this.page.waitForTimeout(500);
+        return;
+      }
+    } catch (err) {
+      console.warn('  ⚠️ Paste event typing failed:', err.message);
+    }
+
+    // Fallback
+    console.log('  ↳ Using keyboard type fallback...');
+    try {
+      const loc = this.page.locator('#prompt-textarea');
+      await loc.click();
+      await this.page.keyboard.type(text, { delay: 5 });
     } catch {
-      // Last resort: keyboard.type
-      await this.page.keyboard.type(text, { delay: 20 });
-      console.log(`  ↳ Prompt typed via keyboard.type`);
+      await this.page.keyboard.type(text, { delay: 5 });
     }
     await this.page.waitForTimeout(600);
   }

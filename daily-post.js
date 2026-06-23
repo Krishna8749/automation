@@ -14,6 +14,7 @@ import fs      from 'fs-extra';
 import path    from 'path';
 import dotenv  from 'dotenv';
 import { fileURLToPath } from 'url';
+import { queryChatGPTCompletions } from './whatsapp-bot.js';
 
 dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -41,7 +42,7 @@ const TOPICS = [
 ];
 
 // ── Main Pipeline ─────────────────────────────────────────────
-export default async function run(customTopic = null) {
+export default async function run(customTopic = null, options = { target: 'personal', type: 'post' }) {
   console.log(chalk.bold.magenta('\n╔══════════════════════════════════════════════════════╗'));
   console.log(chalk.bold.magenta('║   🚀  Daily LinkedIn Banner Post Pipeline            ║'));
   console.log(chalk.bold.magenta('╚══════════════════════════════════════════════════════╝\n'));
@@ -52,43 +53,63 @@ export default async function run(customTopic = null) {
   const topic = customTopic || CONFIG.topic || pickDailyTopic();
   console.log(chalk.bold('📅 Today\'s topic: ') + chalk.cyan(topic));
 
-  const imagePrompt = buildImagePrompt(topic);
-  const caption     = buildCaption(topic);
+  let imagePath = null;
+  let caption = '';
+  let articleTitle = '';
 
-  console.log(chalk.gray(`\n🎨 Image prompt: "${imagePrompt.slice(0, 80)}..."`));
+  if (options.type === 'article') {
+    // Generate Article Content
+    const articlePrompt = `Write a professional LinkedIn article about "${topic}". The article should have a compelling title on the first line (e.g. "Title: ..."), followed by a 400-500 word long-form text formatted with markdown. Focus on high-quality, thought-leadership content related to web/app development and AI.`;
+    console.log(chalk.gray(`\n📝 Generating article with ChatGPT...`));
+    try {
+      const response = await queryChatGPTCompletions(articlePrompt);
+      const lines = response.split('\n');
+      articleTitle = lines[0].replace(/^Title:\s*/i, '').replace(/^#\s*/, '').trim();
+      caption = lines.slice(1).join('\n').trim();
+      console.log(chalk.green(`✅ Article generated: "${articleTitle}"`));
+    } catch (err) {
+      console.error(chalk.red('❌ Article generation failed: ' + err.message));
+      throw err;
+    }
+  } else {
+    // Generate Image Post
+    const imagePrompt = buildImagePrompt(topic);
+    caption = buildCaption(topic);
+    console.log(chalk.gray(`\n🎨 Image prompt: "${imagePrompt.slice(0, 80)}..."`));
 
-  // ── Step 2: Generate banner with ChatGPT (headless) ────────
-  let imagePath;
-  const imgSpinner = ora({
-    text: 'Generating banner image with ChatGPT (headless)...',
-    spinner: 'dots12',
-    color: 'cyan',
-  }).start();
+    // ── Step 2: Generate banner with ChatGPT (headless) ────────
+    const imgSpinner = ora({
+      text: 'Generating banner image with ChatGPT (headless)...',
+      spinner: 'dots12',
+      color: 'cyan',
+    }).start();
 
-  const chatgptBot = new ChatGPTImageBot({
-    cookiesFile: CONFIG.chatgptCookies,
-    outputDir:   CONFIG.outputDir,
-    headless:    true,
-    slowMo:      0,
-  });
-
-  try {
-    await chatgptBot.launch();
-    await chatgptBot.navigate();
-
-    const result = await chatgptBot.generateImage(imagePrompt, {
-      saveAs: `daily_banner_${dateSlug()}`,
+    const chatgptBot = new ChatGPTImageBot({
+      cookiesFile: CONFIG.chatgptCookies,
+      outputDir:   CONFIG.outputDir,
+      headless:    true,
+      slowMo:      0,
     });
 
-    imagePath = result.savedPath;
-    imgSpinner.succeed(chalk.green(`Banner generated: ${path.basename(imagePath)}`));
+    try {
+      await chatgptBot.launch();
+      await chatgptBot.navigate();
 
-  } catch (err) {
-    imgSpinner.fail(chalk.red('Image generation failed: ' + err.message));
-    throw err;
-  } finally {
-    await chatgptBot.close();
+      const result = await chatgptBot.generateImage(imagePrompt, {
+        saveAs: `daily_banner_${dateSlug()}`,
+      });
+
+      imagePath = result.savedPath;
+      imgSpinner.succeed(chalk.green(`Banner generated: ${path.basename(imagePath)}`));
+
+    } catch (err) {
+      imgSpinner.fail(chalk.red('Image generation failed: ' + err.message));
+      throw err;
+    } finally {
+      await chatgptBot.close();
+    }
   }
+
 
   // ── Step 3: Post to LinkedIn (headless) ────────────────────
   const postSpinner = ora({
@@ -106,7 +127,13 @@ export default async function run(customTopic = null) {
   try {
     await linkedIn.launch();
     await linkedIn.verifyLogin();
-    await linkedIn.post(imagePath, topic, caption);
+    await linkedIn.post({
+      imagePath, 
+      title: options.type === 'article' ? articleTitle : topic, 
+      caption, 
+      target: options.target, 
+      type: options.type
+    });
     postSpinner.succeed(chalk.green('Posted to LinkedIn! 🎉'));
 
   } catch (err) {
@@ -123,7 +150,7 @@ export default async function run(customTopic = null) {
   console.log(chalk.gray('  Time:   ') + chalk.white(new Date().toLocaleString()));
   console.log('');
 
-  return { topic, imagePath, caption };
+  return { topic, title: articleTitle, imagePath, caption };
 }
 
 // ── Helpers ───────────────────────────────────────────────────
