@@ -25,9 +25,24 @@ if (DATA_DIR) {
 
     const sourceKeys = path.join(__dirname, 'api-keys.json');
     const targetKeys = path.join(DATA_DIR, 'api-keys.json');
-    if (!fs.existsSync(targetKeys) && fs.existsSync(sourceKeys)) {
-      fs.copySync(sourceKeys, targetKeys);
-      console.log(chalk.green(`🚚 Migrated initial api-keys.json to volume path: ${targetKeys}`));
+    if (!fs.existsSync(targetKeys)) {
+      if (fs.existsSync(sourceKeys)) {
+        fs.copySync(sourceKeys, targetKeys);
+        console.log(chalk.green(`🚚 Migrated initial api-keys.json to volume path: ${targetKeys}`));
+      } else {
+        const defaultKeys = {
+          keys: [
+            {
+              key: "sk-cgp-3eirgct19bdrvyaosz91ak",
+              label: "Default Web Chatbot Key",
+              url: null,
+              createdAt: new Date().toISOString()
+            }
+          ]
+        };
+        fs.writeJsonSync(targetKeys, defaultKeys, { spaces: 2 });
+        console.log(chalk.green(`🔑 Created fresh api-keys.json with default key: ${targetKeys}`));
+      }
     }
   } catch (err) {
     console.error('Failed to configure DATA_DIR volume storage:', err.message);
