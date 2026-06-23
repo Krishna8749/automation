@@ -15,7 +15,7 @@ const DATA_DIR = process.env.DATA_DIR || null;
 if (DATA_DIR) {
   try {
     fs.ensureDirSync(DATA_DIR);
-    
+
     const sourceCookies = path.join(__dirname, 'chatgpt-image-automation', 'cookies.json');
     const targetCookies = path.join(DATA_DIR, 'cookies.json');
     if (!fs.existsSync(targetCookies) && fs.existsSync(sourceCookies)) {
@@ -169,13 +169,13 @@ async function initBot() {
 
   try {
     if (bot) {
-      await bot.close().catch(() => {});
+      await bot.close().catch(() => { });
     }
 
     bot = new ChatGPTImageBot({
       cookiesFile: COOKIES_FILE,
-      headless:    HEADLESS,
-      slowMo:      0,
+      headless: HEADLESS,
+      slowMo: 0,
     });
 
     await bot.launch();
@@ -230,7 +230,7 @@ app.post('/api/keys-mgmt', async (req, res) => {
   try {
     const data = await fs.readJson(KEYS_FILE).catch(() => ({ keys: [] }));
     const finalKey = key || `sk-cgp-${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-    
+
     // Check if key already exists
     const existing = data.keys.find(k => k.key === finalKey);
     if (existing) {
@@ -270,7 +270,7 @@ app.get('/api/debug', authMiddleware, async (req, res) => {
     const isHealthy = bot && bot.page && !bot.page.isClosed();
     const url = isHealthy ? bot.page.url() : 'browser-inactive';
     const title = isHealthy ? await bot.page.title().catch(() => 'error') : '';
-    
+
     let screenshotBase64 = null;
     let iframes = [];
     if (isHealthy) {
@@ -278,7 +278,7 @@ app.get('/api/debug', authMiddleware, async (req, res) => {
       if (buffer) {
         screenshotBase64 = buffer.toString('base64');
       }
-      
+
       iframes = await bot.page.evaluate(() => {
         const list = [];
         const findIframes = (root) => {
@@ -371,7 +371,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
         }
       } else {
         console.log(chalk.yellow(`🆕 Starting fresh thread context for: "${keyRecord.label}"`));
-        await bot.page.goto('https://chatgpt.com', { waitUntil: 'domcontentloaded', timeout: bot.pageTimeout });
+        await bot.page.goto(bot.chatgptUrl, { waitUntil: 'domcontentloaded', timeout: bot.pageTimeout });
         await bot.page.waitForTimeout(3000);
         await bot._bypassCloudflare();
         await bot._waitForChatReady();
@@ -388,7 +388,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 
       // Capture dynamic thread URL
       const latestUrl = bot.page.url();
-      if (!keyRecord.url && latestUrl.startsWith('https://chatgpt.com/c/')) {
+      if (!keyRecord.url && latestUrl.startsWith(`${bot.chatgptUrl}/c/`)) {
         keyRecord.url = latestUrl;
         await updateKeyUrl(keyRecord.key, latestUrl);
       }
@@ -447,8 +447,8 @@ app.post('/v1/chat/completions', authMiddleware, async (req, res) => {
     });
   }
 
-  const promptText = typeof lastUserMsg.content === 'string' 
-    ? lastUserMsg.content 
+  const promptText = typeof lastUserMsg.content === 'string'
+    ? lastUserMsg.content
     : JSON.stringify(lastUserMsg.content);
 
   console.log(chalk.cyan(`\n💬 Prompt from "${keyRecord.label}": "${promptText.slice(0, 60)}..."`));
@@ -472,7 +472,7 @@ app.post('/v1/chat/completions', authMiddleware, async (req, res) => {
         }
       } else {
         console.log(chalk.yellow(`🆕 Starting fresh thread context for: "${keyRecord.label}"`));
-        await bot.page.goto('https://chatgpt.com', { waitUntil: 'domcontentloaded', timeout: bot.pageTimeout });
+        await bot.page.goto(bot.chatgptUrl, { waitUntil: 'domcontentloaded', timeout: bot.pageTimeout });
         await bot.page.waitForTimeout(3000);
         await bot._bypassCloudflare();
         await bot._waitForChatReady();
@@ -535,7 +535,7 @@ app.post('/v1/chat/completions', authMiddleware, async (req, res) => {
 
           // Capture dynamic thread URL
           const currentUrl = bot.page.url();
-          if (!keyRecord.url && currentUrl.startsWith('https://chatgpt.com/c/')) {
+          if (!keyRecord.url && currentUrl.startsWith(`${bot.chatgptUrl}/c/`)) {
             keyRecord.url = currentUrl;
             await updateKeyUrl(keyRecord.key, currentUrl);
           }
@@ -570,7 +570,7 @@ app.post('/v1/chat/completions', authMiddleware, async (req, res) => {
 
         // Capture dynamic thread URL
         const currentUrl = bot.page.url();
-        if (!keyRecord.url && currentUrl.startsWith('https://chatgpt.com/c/')) {
+        if (!keyRecord.url && currentUrl.startsWith(`${bot.chatgptUrl}/c/`)) {
           keyRecord.url = currentUrl;
           await updateKeyUrl(keyRecord.key, currentUrl);
         }

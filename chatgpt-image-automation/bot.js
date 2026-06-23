@@ -62,7 +62,7 @@ export class ChatGPTImageBot {
     this.outputDir    = options.outputDir    || path.join(__dirname, 'generated-images');
     this.headless     = options.headless     ?? true;
     this.slowMo       = options.slowMo       ?? 0;
-    this.chatgptUrl   = options.chatgptUrl   || 'https://chatgpt.com';
+    this.chatgptUrl   = options.chatgptUrl   || process.env.CHATGPT_URL || 'https://chatgpt.com';
     this.pageTimeout  = options.pageTimeout  || 90000;
     this.imageTimeout = options.imageTimeout || 300000; // 5 min
 
@@ -109,7 +109,7 @@ export class ChatGPTImageBot {
         slowMo:   this.slowMo,
         args:     launchArgs,
         userAgent: profile.userAgent,
-        viewport:   profile.viewport,
+        viewport:   null,
         locale:     'en-US',
         timezoneId: 'Asia/Kolkata',
         permissions: ['clipboard-read', 'clipboard-write'],
@@ -122,7 +122,7 @@ export class ChatGPTImageBot {
         slowMo:   this.slowMo,
         args:     launchArgs,
         userAgent: profile.userAgent,
-        viewport:   profile.viewport,
+        viewport:   null,
         locale:     'en-US',
         timezoneId: 'Asia/Kolkata',
         permissions: ['clipboard-read', 'clipboard-write'],
@@ -132,11 +132,29 @@ export class ChatGPTImageBot {
 
     // Stealth: inject advanced randomized device fingerprints matching Chrome
     await this.context.addInitScript((profile) => {
+      // Clean up any automation variables injected by Playwright/Chromium driver
+      for (const prop of Object.getOwnPropertyNames(window)) {
+        if (prop.includes('cdc_') || prop.includes('playwright')) {
+          try { delete window[prop]; } catch(e) {}
+        }
+      }
+
       // 1. Webdriver undefined
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
 
       // 2. Languages
       Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+
+      // Spoof navigator.connection
+      Object.defineProperty(navigator, 'connection', {
+        get: () => ({
+          onchange: null,
+          effectiveType: '4g',
+          rtt: 50,
+          downlink: 10,
+          saveData: false
+        })
+      });
 
       // 3. Touch support
       Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 0 });
@@ -324,7 +342,7 @@ export class ChatGPTImageBot {
   async saveCurrentChatUrl() {
     try {
       const currentUrl = this.page.url();
-      if (currentUrl.startsWith('https://chatgpt.com/c/')) {
+      if (currentUrl.startsWith(`${this.chatgptUrl}/c/`)) {
         await fs.writeJson(this.lastChatUrlFile, { url: currentUrl }, { spaces: 2 });
         console.log(`💾 Saved current chat session URL: ${currentUrl}`);
         return true;
@@ -339,7 +357,14 @@ export class ChatGPTImageBot {
     return raw.map(c => ({
       name:     c.name,
       value:    c.value,
-      domain:   c.domain   || '.chatgpt.com',
+      domain:   c.domain   || (() => {
+        try {
+          const host = new URL(this.chatgptUrl).hostname;
+          return host.startsWith('.') ? host : '.' + host;
+        } catch {
+          return '.chatgpt.com';
+        }
+      })(),
       path:     c.path     || '/',
       expires:  c.expirationDate || c.expires || -1,
       httpOnly: c.httpOnly ?? false,
@@ -359,7 +384,7 @@ export class ChatGPTImageBot {
     if (!urlToGo && fs.existsSync(this.lastChatUrlFile)) {
       try {
         const savedState = await fs.readJson(this.lastChatUrlFile);
-        if (savedState && savedState.url && savedState.url.startsWith('https://chatgpt.com/c/')) {
+        if (savedState && savedState.url && savedState.url.startsWith(`${this.chatgptUrl}/c/`)) {
           urlToGo = savedState.url;
           console.log(`🔄 Found previous chat session URL: ${urlToGo}`);
         }
