@@ -37,6 +37,31 @@ if (DATA_DIR) {
 const COOKIES_FILE = DATA_DIR ? path.join(DATA_DIR, 'cookies.json') : path.join(__dirname, 'chatgpt-image-automation', 'cookies.json');
 const KEYS_FILE = DATA_DIR ? path.join(DATA_DIR, 'api-keys.json') : path.join(__dirname, 'api-keys.json');
 
+// Parse CHATGPT_COOKIES env var if present and write it to COOKIES_FILE on startup
+if (process.env.CHATGPT_COOKIES) {
+  try {
+    let rawCookies = process.env.CHATGPT_COOKIES.trim();
+    // Check if it's base64 encoded
+    if (!rawCookies.startsWith('[') && !rawCookies.startsWith('{')) {
+      try {
+        const decoded = Buffer.from(rawCookies, 'base64').toString('utf8');
+        if (decoded.startsWith('[') || decoded.startsWith('{')) {
+          rawCookies = decoded;
+        }
+      } catch (e) {
+        // Ignore and use raw
+      }
+    }
+    const parsed = JSON.parse(rawCookies);
+    const cookiesArray = Array.isArray(parsed) ? parsed : (parsed.cookies || [parsed]);
+    fs.ensureDirSync(path.dirname(COOKIES_FILE));
+    fs.writeJsonSync(COOKIES_FILE, cookiesArray, { spaces: 2 });
+    console.log(chalk.green(`🔑 Loaded ${cookiesArray.length} cookies from CHATGPT_COOKIES environment variable!`));
+  } catch (err) {
+    console.error('❌ Failed to parse CHATGPT_COOKIES env variable:', err.message);
+  }
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
